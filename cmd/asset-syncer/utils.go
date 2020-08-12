@@ -31,6 +31,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -57,6 +58,11 @@ type importChartFilesJob struct {
 
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
+}
+
+type fileMatcher struct {
+	FileName *string
+	Matcher  *regexp.Regexp
 }
 
 var netClient httpClient = &http.Client{}
@@ -199,7 +205,9 @@ func newChart(entry helmrepo.ChartVersions, r *models.Repo) models.Chart {
 	return c
 }
 
-func extractFilesFromTarball(filenames []string, tarf *tar.Reader) (map[string]string, error) {
+// Takes a tarfile and extract files according fileMatcher.Matcher regex.
+// If fileMatcher.Filename is nil, the key on result map will be the first regex group (if any) or full match, all lowercase
+func extractFilesFromTarball(filenames []fileMatcher, tarf *tar.Reader) (map[string]string, error) {
 	ret := make(map[string]string)
 	for {
 		header, err := tarf.Next()
@@ -211,10 +219,23 @@ func extractFilesFromTarball(filenames []string, tarf *tar.Reader) (map[string]s
 		}
 
 		for _, f := range filenames {
-			if strings.EqualFold(header.Name, f) {
+			if f.Matcher.MatchString(header.Name) {
 				var b bytes.Buffer
 				io.Copy(&b, tarf)
-				ret[f] = string(b.Bytes())
+
+				if f.FileName == nil {
+					var key string
+					if f.Matcher.NumSubexp() == 1 {
+						key = string(f.Matcher.FindSubmatch([]byte(header.Name))[1])
+					} else {
+						key = header.Name
+					}
+
+					ret[strings.ToLower(key)] = string(b.Bytes())
+				} else {
+					ret[*f.FileName] = string(b.Bytes())
+				}
+
 				break
 			}
 		}
@@ -426,9 +447,15 @@ func (f *fileImporter) fetchAndImportFiles(name string, r *models.RepoInternal, 
 	tarf := tar.NewReader(gzf)
 
 	readmeFileName := name + "/README.md"
-	valuesFileName := name + "/values.yaml"
 	schemaFileName := name + "/values.schema.json"
-	filenames := []string{valuesFileName, readmeFileName, schemaFileName}
+	valuesRegex := "(values-?.*\\.ya?ml)"
+	valuesCompiledRegex := regexp.MustCompile("(?i)" + name + "/" + valuesRegex)
+
+	filenames := []fileMatcher{
+		{FileName: &readmeFileName, Matcher: regexp.MustCompile("(?i)" + readmeFileName)},
+		{FileName: &schemaFileName, Matcher: regexp.MustCompile("(?i)" + schemaFileName)},
+		{FileName: nil, Matcher: valuesCompiledRegex},
+	}
 
 	files, err := extractFilesFromTarball(filenames, tarf)
 	if err != nil {
@@ -436,20 +463,30 @@ func (f *fileImporter) fetchAndImportFiles(name string, r *models.RepoInternal, 
 	}
 
 	chartFiles := models.ChartFiles{ID: chartFilesID, Repo: &models.Repo{Name: r.Name, Namespace: r.Namespace, URL: r.URL}, Digest: cv.Digest}
+
+	chartFiles.ValueFiles = []models.ValueFile{}
+
 	if v, ok := files[readmeFileName]; ok {
 		chartFiles.Readme = v
 	} else {
 		log.WithFields(log.Fields{"name": name, "version": cv.Version}).Info("README.md not found")
 	}
-	if v, ok := files[valuesFileName]; ok {
-		chartFiles.Values = v
-	} else {
-		log.WithFields(log.Fields{"name": name, "version": cv.Version}).Info("values.yaml not found")
-	}
 	if v, ok := files[schemaFileName]; ok {
 		chartFiles.Schema = v
 	} else {
 		log.WithFields(log.Fields{"name": name, "version": cv.Version}).Info("values.schema.json not found")
+	}
+
+	for key, value := range files {
+		match, err := regexp.MatchString(valuesRegex, key)
+
+		if match && err == nil {
+			chartFiles.ValueFiles = append(chartFiles.ValueFiles, models.ValueFile{Name: key, Content: value})
+		}
+	}
+
+	if len(chartFiles.ValueFiles) == 0 {
+		log.WithFields(log.Fields{"name": name, "version": cv.Version}).Info("no values.yaml or values-*.yaml found")
 	}
 
 	// inserts the chart files if not already indexed, or updates the existing

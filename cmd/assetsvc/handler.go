@@ -19,7 +19,9 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/kubeapps/common/response"
@@ -214,17 +216,42 @@ func getChartVersionReadme(w http.ResponseWriter, req *http.Request, params Para
 	w.Write(readme)
 }
 
+func redirectValuesYaml(w http.ResponseWriter, req *http.Request, params Params){
+	params["valuesName"] = "values.yaml"
+	getChartVersionValues(w, req, params)
+}
+
 // getChartVersionValues returns the values.yaml for a given chart
 func getChartVersionValues(w http.ResponseWriter, req *http.Request, params Params) {
 	fileID := fmt.Sprintf("%s/%s-%s", params["repo"], params["chartName"], params["version"])
 	files, err := manager.getChartFiles(params["namespace"], fileID)
+	valuesName := params["valuesName"]
+
+	var chosenValue string
+
 	if err != nil {
-		log.WithError(err).Errorf("could not find values.yaml with id %s", fileID)
+		log.WithError(err).Errorf("could not find valid files with id %s", fileID)
 		http.NotFound(w, req)
 		return
 	}
 
-	w.Write([]byte(files.Values))
+	for _, values := range files.ValueFiles {
+		if strings.EqualFold(values.Name, valuesName) {
+			chosenValue = values.Content
+			break
+		}
+	}
+
+	// This comparison exists for compatibility purposes
+	if chosenValue == "" && valuesName == "values.yaml" {
+		chosenValue = files.Values
+	}
+
+	if chosenValue == "" {
+		log.WithError(err).Errorf("could not find suitable values file with id %s and name %s", fileID, valuesName)
+	}
+
+	w.Write([]byte(chosenValue))
 }
 
 // getChartVersionSchema returns the values.schema.json for a given chart
@@ -238,6 +265,74 @@ func getChartVersionSchema(w http.ResponseWriter, req *http.Request, params Para
 	}
 
 	w.Write([]byte(files.Schema))
+}
+
+func getChartVersionValueFiles(w http.ResponseWriter, req *http.Request, params Params){
+	chartID := fmt.Sprintf("%s/%s", params["repo"], params["chartName"])
+	namespace := params["namespace"]
+	version := params["version"]
+	var chartVersion *models.ChartVersion
+	chart, err := manager.getChart(namespace, chartID)
+
+	if err != nil {
+		log.WithError(err).Errorf("could not find chart with id %s", chartID)
+		response.NewErrorResponse(http.StatusNotFound, "could not find chart version").Write(w)
+		return
+	}
+
+	for _, cv := range chart.ChartVersions{
+		if cv.Version == version{
+			chartVersion = &cv
+		}
+	}
+
+	if chartVersion == nil {
+		log.WithError(err).Errorf("could not find chart with version %s", version)
+		response.NewErrorResponse(http.StatusNotFound, "could not find chart version").Write(w)
+		return
+	}
+
+	chartPath := fmt.Sprintf("%s/ns/%s/charts/%s/versions/%s/values", pathPrefix, namespace, chart.ID, chartVersion.Version)
+	relationships := make(relMap)
+
+	for _, values := range listValuesFiles(namespace, chartID, *chartVersion){
+		relationships[values] = rel{Data: values, Links: selfLink{ chartPath + "/" + values }}
+	}
+
+	valuesResponse := apiResponse{
+		Type:       "valuesFiles",
+		ID:         chartID,
+		Attributes: blankRawIconAndChartVersions(chartAttributes(namespace, chart)),
+		Relationships: relationships,
+	}
+
+
+	response.NewDataResponse(valuesResponse).Write(w)
+}
+
+// Returns names of all available values files.
+func listValuesFiles(namespace string, cid string, cv models.ChartVersion) []string{
+	fileID := fmt.Sprintf("%s-%s", cid, cv.Version)
+	files, err := manager.getChartFiles(namespace, fileID)
+	var valueFiles []string
+
+	if err != nil {
+		return valueFiles
+	}
+
+	for _, valueFile := range files.ValueFiles {
+		valueFiles = append(valueFiles, valueFile.Name)
+	}
+
+
+	// This comparison exists for compatibility purposes
+	if len(valueFiles) == 0 && files.Values != "" {
+		valueFiles = append(valueFiles, "values.yaml")
+	}
+
+	sort.Strings(valueFiles)
+
+	return valueFiles
 }
 
 // listChartsWithFilters returns the list of repos that contains the given chart and the latest version found
@@ -295,9 +390,20 @@ func newChartListResponse(charts []*models.Chart) apiListResponse {
 }
 
 func chartVersionAttributes(namespace, cid string, cv models.ChartVersion) models.ChartVersion {
+	existingValues := listValuesFiles(namespace, cid, cv)
+	firstValue := ""
+
+	if len(existingValues) > 0 {
+		firstValue = existingValues[0]
+	}
+
 	versionPath := fmt.Sprintf("%s/ns/%s/assets/%s/versions/%s/", pathPrefix, namespace, cid, cv.Version)
 	cv.Readme = versionPath + "README.md"
-	cv.Values = versionPath + "values.yaml"
+
+	if firstValue != "" {
+		cv.Values = versionPath + "values/" + firstValue
+	}
+
 	return cv
 }
 

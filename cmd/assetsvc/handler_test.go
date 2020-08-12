@@ -101,19 +101,37 @@ func Test_chartAttributes(t *testing.T) {
 
 func Test_chartVersionAttributes(t *testing.T) {
 	tests := []struct {
-		name  string
-		chart models.Chart
+		name       string
+		chart      models.Chart
+		chartFiles models.ChartFiles
+		valuesName string
 	}{
-		{"my-chart", models.Chart{
-			ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}},
-		}},
+		{
+			name:       "my-chart",
+			chart:      models.Chart{ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
+			chartFiles: models.ChartFiles{Values: "best values ever"},
+			valuesName: "values.yaml",
+		},
+		{
+			name:       "my-chart",
+			chart:      models.Chart{ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
+			chartFiles: models.ChartFiles{ValueFiles: []models.ValueFile{{Name: "values-test.yaml", Content: "best values ever"}}},
+			valuesName: "values-test.yaml",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var m mock.Mock
+			manager = getMockManager(&m)
+
+			m.On("One", mock.Anything).Run(func(args mock.Arguments) {
+				*args.Get(0).(*models.ChartFiles) = tt.chartFiles
+			})
+
 			cv := chartVersionAttributes(namespace, tt.chart.ID, tt.chart.ChartVersions[0])
 			assert.Equal(t, cv.Version, tt.chart.ChartVersions[0].Version, "version string should be the same")
 			assert.Equal(t, cv.Readme, pathPrefix+"/ns/"+namespace+"/assets/"+tt.chart.ID+"/versions/"+tt.chart.ChartVersions[0].Version+"/README.md", "README.md resource path should be the same")
-			assert.Equal(t, cv.Values, pathPrefix+"/ns/"+namespace+"/assets/"+tt.chart.ID+"/versions/"+tt.chart.ChartVersions[0].Version+"/values.yaml", "values.yaml resource path should be the same")
+			assert.Equal(t, cv.Values, pathPrefix+"/ns/"+namespace+"/assets/"+tt.chart.ID+"/versions/"+tt.chart.ChartVersions[0].Version+"/values/"+tt.valuesName, "values.yaml resource path should be the same")
 		})
 	}
 }
@@ -254,32 +272,60 @@ func Test_newChartVersionListResponse(t *testing.T) {
 
 func Test_listCharts(t *testing.T) {
 	tests := []struct {
-		name   string
-		query  string
-		charts []*models.Chart
-		meta   meta
+		name       string
+		query      string
+		charts     []*models.Chart
+		chartFiles *models.ChartFiles
+		meta       meta
 	}{
-		{"no charts", "", []*models.Chart{}, meta{1}},
-		{"one chart", "", []*models.Chart{
-			{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
-		}, meta{1}},
-		{"two charts", "", []*models.Chart{
-			{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
-			{Repo: testRepo, ID: "stable/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}, {Version: "1.2.2", Digest: "12345"}}},
-		}, meta{1}},
+		{
+			name:       "no charts",
+			query:      "",
+			charts:     []*models.Chart{},
+			chartFiles: nil,
+			meta:       meta{1},
+		},
+		{
+			name:       "one chart",
+			charts:     []*models.Chart{{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}}},
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
+			meta:       meta{1},
+		},
+		{
+			name: "two charts",
+			charts: []*models.Chart{
+				{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
+				{Repo: testRepo, ID: "stable/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}, {Version: "1.2.2", Digest: "12345"}}},
+			},
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
+			meta:       meta{1},
+		},
 		// Pagination tests
-		{"four charts with pagination", "?size=2", []*models.Chart{
-			{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
-			{Repo: testRepo, ID: "stable/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}}},
-			{Repo: testRepo, ID: "stable/drupal", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "12345"}}},
-			{Repo: testRepo, ID: "stable/wordpress", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "123456"}}},
-		}, meta{2}},
+		{
+			name:  "four charts with pagination",
+			query: "?size=2",
+			charts: []*models.Chart{
+				{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
+				{Repo: testRepo, ID: "stable/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}}},
+				{Repo: testRepo, ID: "stable/drupal", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "12345"}}},
+				{Repo: testRepo, ID: "stable/wordpress", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "123456"}}},
+			},
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
+			meta:       meta{2},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var m mock.Mock
 			manager = getMockManager(&m)
+
+			if tt.chartFiles != nil {
+				m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+					*args.Get(0).(*models.ChartFiles) = *tt.chartFiles
+				})
+			}
+
 			m.On("All", &chartsList).Run(func(args mock.Arguments) {
 				*args.Get(0).(*[]*models.Chart) = tt.charts
 			})
@@ -316,32 +362,64 @@ func Test_listCharts(t *testing.T) {
 
 func Test_listRepoCharts(t *testing.T) {
 	tests := []struct {
-		name   string
-		repo   string
-		query  string
-		charts []*models.Chart
-		meta   meta
+		name   		string
+		repo   		string
+		query  		string
+		charts 		[]*models.Chart
+		meta   		meta
+		chartFiles 	*models.ChartFiles
 	}{
-		{"repo has no charts", "my-repo", "", []*models.Chart{}, meta{1}},
-		{"repo has one chart", "my-repo", "", []*models.Chart{
-			{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
-		}, meta{1}},
-		{"repo has many charts", "my-repo", "", []*models.Chart{
-			{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
-			{Repo: testRepo, ID: "my-repo/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}, {Version: "1.2.2", Digest: "12345"}}},
-		}, meta{1}},
-		{"repo has many charts with pagination", "my-repo", "?size=2", []*models.Chart{
-			{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
-			{Repo: testRepo, ID: "stable/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}}},
-			{Repo: testRepo, ID: "stable/drupal", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "12345"}}},
-			{Repo: testRepo, ID: "stable/wordpress", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "123456"}}},
-		}, meta{2}},
+		{
+			name:   "repo has no charts",
+			repo:   "my-repo",
+			charts: []*models.Chart{},
+			meta:   meta{1},
+		},
+		{
+			name: "repo has one chart",
+			repo: "my-repo",
+			charts: []*models.Chart{
+				{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
+			},
+			meta: meta{1},
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
+		},
+		{
+			name: "repo has many charts",
+			repo: "my-repo",
+
+			charts: []*models.Chart{
+				{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
+				{Repo: testRepo, ID: "my-repo/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}, {Version: "1.2.2", Digest: "12345"}}},
+			},
+			meta: meta{1},
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
+		},
+		{
+			name:  "repo has many charts with pagination",
+			repo:  "my-repo",
+			query: "?size=2",
+			charts: []*models.Chart{
+				{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
+				{Repo: testRepo, ID: "stable/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}}},
+				{Repo: testRepo, ID: "stable/drupal", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "12345"}}},
+				{Repo: testRepo, ID: "stable/wordpress", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "123456"}}},
+			},
+			meta: meta{2},
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var m mock.Mock
 			manager = getMockManager(&m)
+
+			if tt.chartFiles != nil {
+				m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+					*args.Get(0).(*models.ChartFiles) = *tt.chartFiles
+				})
+			}
 
 			m.On("All", &chartsList).Run(func(args mock.Arguments) {
 				*args.Get(0).(*[]*models.Chart) = tt.charts
@@ -379,28 +457,29 @@ func Test_listRepoCharts(t *testing.T) {
 
 func Test_getChart(t *testing.T) {
 	tests := []struct {
-		name     string
-		err      error
-		chart    models.Chart
-		wantCode int
+		name     	string
+		err      	error
+		chart    	models.Chart
+		wantCode 	int
+		chartFiles 	*models.ChartFiles
 	}{
 		{
-			"chart does not exist",
-			errors.New("return an error when checking if chart exists"),
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			err:      errors.New("return an error when checking if chart exists"),
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
-			http.StatusOK,
+			name:     "chart exists",
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
+			wantCode: http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
 		},
 		{
-			"chart has multiple versions",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
-			http.StatusOK,
+			name:     "chart has multiple versions",
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
+			wantCode: http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
 		},
 	}
 
@@ -408,6 +487,12 @@ func Test_getChart(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var m mock.Mock
 			manager = getMockManager(&m)
+
+			if tt.chartFiles != nil {
+				m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+					*args.Get(0).(*models.ChartFiles) = *tt.chartFiles
+				})
+			}
 
 			if tt.err != nil {
 				m.On("One", mock.Anything).Return(tt.err)
@@ -444,28 +529,29 @@ func Test_getChart(t *testing.T) {
 
 func Test_listChartVersions(t *testing.T) {
 	tests := []struct {
-		name     string
-		err      error
-		chart    models.Chart
-		wantCode int
+		name     	string
+		err      	error
+		chart    	models.Chart
+		wantCode 	int
+		chartFiles 	*models.ChartFiles
 	}{
 		{
-			"chart does not exist",
-			errors.New("return an error when checking if chart exists"),
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			err:      errors.New("return an error when checking if chart exists"),
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
-			http.StatusOK,
+			name:     "chart exists",
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
+			wantCode: http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
 		},
 		{
-			"chart has multiple versions",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
-			http.StatusOK,
+			name:     "chart has multiple versions",
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
+			wantCode: http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
 		},
 	}
 
@@ -473,6 +559,12 @@ func Test_listChartVersions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var m mock.Mock
 			manager = getMockManager(&m)
+
+			if tt.chartFiles != nil {
+				m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+					*args.Get(0).(*models.ChartFiles) = *tt.chartFiles
+				})
+			}
 
 			if tt.err != nil {
 				m.On("One", mock.Anything).Return(tt.err)
@@ -510,28 +602,29 @@ func Test_listChartVersions(t *testing.T) {
 
 func Test_getChartVersion(t *testing.T) {
 	tests := []struct {
-		name     string
-		err      error
-		chart    models.Chart
-		wantCode int
+		name     	string
+		err      	error
+		chart    	models.Chart
+		wantCode 	int
+		chartFiles 	*models.ChartFiles
 	}{
 		{
-			"chart does not exist",
-			errors.New("return an error when checking if chart exists"),
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			err:      errors.New("return an error when checking if chart exists"),
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
-			http.StatusOK,
+			name:     "chart exists",
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
+			wantCode: http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
 		},
 		{
-			"chart has multiple versions",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
-			http.StatusOK,
+			name:     "chart has multiple versions",
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
+			wantCode: http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best values ever"},
 		},
 	}
 
@@ -539,6 +632,12 @@ func Test_getChartVersion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var m mock.Mock
 			manager = getMockManager(&m)
+
+			if tt.chartFiles != nil {
+				m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+					*args.Get(0).(*models.ChartFiles) = *tt.chartFiles
+				})
+			}
 
 			if tt.err != nil {
 				m.On("One", mock.Anything).Return(tt.err)
@@ -580,28 +679,25 @@ func Test_getChartIcon(t *testing.T) {
 		wantCode int
 	}{
 		{
-			"chart does not exist",
-			errors.New("return an error when checking if chart exists"),
-			models.Chart{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			err:      errors.New("return an error when checking if chart exists"),
+			chart:    models.Chart{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart has icon",
-			nil,
-			models.Chart{ID: "my-repo/my-chart", RawIcon: iconBytes(), IconContentType: "image/png"},
-			http.StatusOK,
+			name:     "chart has icon",
+			chart:    models.Chart{ID: "my-repo/my-chart", RawIcon: iconBytes(), IconContentType: "image/png"},
+			wantCode: http.StatusOK,
 		},
 		{
-			"chart does not have a icon",
-			nil,
-			models.Chart{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not have a icon",
+			chart:    models.Chart{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart has icon with custom type",
-			nil,
-			models.Chart{ID: "my-repo/my-chart", RawIcon: iconBytes(), IconContentType: "image/svg"},
-			http.StatusOK,
+			name:     "chart has icon with custom type",
+			chart:    models.Chart{ID: "my-repo/my-chart", RawIcon: iconBytes(), IconContentType: "image/svg"},
+			wantCode: http.StatusOK,
 		},
 	}
 
@@ -647,25 +743,23 @@ func Test_getChartVersionReadme(t *testing.T) {
 		wantCode int
 	}{
 		{
-			"chart does not exist",
-			"0.1.0",
-			errors.New("return an error when checking if chart exists"),
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			version:  "0.1.0",
+			err:      errors.New("return an error when checking if chart exists"),
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			"1.2.3",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart", Readme: testChartReadme},
-			http.StatusOK,
+			name:     "chart exists",
+			version:  "1.2.3",
+			files:    models.ChartFiles{ID: "my-repo/my-chart", Readme: testChartReadme},
+			wantCode: http.StatusOK,
 		},
 		{
-			"chart does not have a readme",
-			"1.1.1",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not have a readme",
+			version:  "1.1.1",
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 	}
 
@@ -711,25 +805,29 @@ func Test_getChartVersionValues(t *testing.T) {
 		wantCode int
 	}{
 		{
-			"chart does not exist",
-			"0.1.0",
-			errors.New("return an error when checking if chart exists"),
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			version:  "0.1.0",
+			err:      errors.New("return an error when checking if chart exists"),
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			"3.2.1",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart", Values: testChartValues},
-			http.StatusOK,
+			name:     "chart exists",
+			version:  "3.2.1",
+			files:    models.ChartFiles{ID: "my-repo/my-chart", ValueFiles: []models.ValueFile{{Name: "values.yaml", Content: testChartValues}}},
+			wantCode: http.StatusOK,
 		},
 		{
-			"chart does not have values.yaml",
-			"2.2.2",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusOK,
+			name:     "chart does not have values.yaml",
+			version:  "2.2.2",
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusOK,
+		},
+		{
+			name:     "chart have a legacy values structure",
+			version:  "3.2.1",
+			files:    models.ChartFiles{ID: "my-repo/my-chart", Values: testChartValues},
+			wantCode: http.StatusOK,
 		},
 	}
 
@@ -747,20 +845,32 @@ func Test_getChartVersionValues(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/assets/"+tt.files.ID+"/versions/"+tt.version+"/values.yaml", nil)
+			req := httptest.NewRequest("GET", "/assets/"+tt.files.ID+"/versions/"+tt.version+"/values/values.yaml", nil)
 			parts := strings.Split(tt.files.ID, "/")
 			params := Params{
-				"repo":      parts[0],
-				"chartName": parts[1],
-				"version":   "0.1.0",
+				"repo":       parts[0],
+				"chartName":  parts[1],
+				"version":    "0.1.0",
+				"valuesName": "values.yaml",
 			}
 
 			getChartVersionValues(w, req, params)
 
 			m.AssertExpectations(t)
 			assert.Equal(t, tt.wantCode, w.Code, "http status code should match")
+
+			var comparableContent string
+
+			if tt.err == nil {
+				if len(tt.files.ValueFiles) > 0 {
+					comparableContent = tt.files.ValueFiles[0].Content
+				} else {
+					comparableContent = tt.files.Values
+				}
+			}
+
 			if tt.wantCode == http.StatusOK {
-				assert.Equal(t, string(w.Body.Bytes()), tt.files.Values, "content of values.yaml should match")
+				assert.Equal(t, string(w.Body.Bytes()), comparableContent, "content of values.yaml should match")
 			}
 		})
 	}
@@ -775,25 +885,23 @@ func Test_getChartVersionSchema(t *testing.T) {
 		wantCode int
 	}{
 		{
-			"chart does not exist",
-			"0.1.0",
-			errors.New("return an error when checking if chart exists"),
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			version:  "0.1.0",
+			err:      errors.New("return an error when checking if chart exists"),
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			"3.2.1",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart", Schema: testChartSchema},
-			http.StatusOK,
+			name:     "chart exists",
+			version:  "3.2.1",
+			files:    models.ChartFiles{ID: "my-repo/my-chart", Schema: testChartSchema},
+			wantCode: http.StatusOK,
 		},
 		{
-			"chart does not have values.yaml",
-			"2.2.2",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusOK,
+			name:     "chart does not have values.yaml",
+			version:  "2.2.2",
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusOK,
 		},
 	}
 
@@ -846,9 +954,16 @@ func Test_findLatestChart(t *testing.T) {
 		reqAppVersion := "0.1.0"
 
 		var m mock.Mock
+
+		files := models.ChartFiles{Values: "best chart ever"}
+
 		manager = getMockManager(&m)
 		m.On("All", &chartsList).Run(func(args mock.Arguments) {
 			*args.Get(0).(*[]*models.Chart) = charts
+		})
+
+		m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+			*args.Get(0).(*models.ChartFiles) = files
 		})
 
 		w := httptest.NewRecorder()
@@ -880,10 +995,15 @@ func Test_findLatestChart(t *testing.T) {
 		reqVersion := "1.0.0"
 		reqAppVersion := "0.1.0"
 
+		files := models.ChartFiles{Values: "best chart ever"}
 		var m mock.Mock
 		manager = getMockManager(&m)
 		m.On("All", &chartsList).Run(func(args mock.Arguments) {
 			*args.Get(0).(*[]*models.Chart) = charts
+		})
+
+		m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+			*args.Get(0).(*models.ChartFiles) = files
 		})
 
 		w := httptest.NewRecorder()
@@ -916,10 +1036,15 @@ func Test_findLatestChart(t *testing.T) {
 		reqVersion := "1.0.0"
 		reqAppVersion := "0.1.0"
 
+		files := models.ChartFiles{Values: "best chart ever"}
 		var m mock.Mock
 		manager = getMockManager(&m)
 		m.On("All", &chartsList).Run(func(args mock.Arguments) {
 			*args.Get(0).(*[]*models.Chart) = charts
+		})
+
+		m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+			*args.Get(0).(*models.ChartFiles) = files
 		})
 
 		w := httptest.NewRecorder()

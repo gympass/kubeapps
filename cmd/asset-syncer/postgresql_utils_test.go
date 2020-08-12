@@ -152,7 +152,7 @@ func Test_PGinsertFiles(t *testing.T) {
 		chartId   = repoName + "/wordpress"
 		filesId   = chartId + "-2.1.3"
 	)
-	files := models.ChartFiles{ID: filesId, Readme: "foo", Values: "bar", Repo: &models.Repo{Namespace: namespace, Name: repoName}}
+	files := models.ChartFiles{ID: filesId, Readme: "foo", ValueFiles: []models.ValueFile{{Name: "values.yaml", Content: "bar"}}, Repo: &models.Repo{Namespace: namespace, Name: repoName}}
 	m := &mockDB{&mock.Mock{}}
 	man, _ := dbutils.NewPGManager(datastore.Config{URL: "localhost:4123"}, dbutilstest.KubeappsTestNamespace)
 	man.DB = m
