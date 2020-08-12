@@ -62,17 +62,29 @@ func Test_GetCharts(t *testing.T) {
 	defer ts.Close()
 
 	tests := []struct {
-		name   string
-		charts []*models.Chart
+		name       string
+		charts     []*models.Chart
+		chartFiles *models.ChartFiles
 	}{
-		{"no charts", []*models.Chart{}},
-		{"one chart", []*models.Chart{
-			{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1"}}}},
+		{
+			name:   "no charts",
+			charts: []*models.Chart{},
 		},
-		{"two charts", []*models.Chart{
-			{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
-			{Repo: testRepo, ID: "my-repo/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}, {Version: "1.2.2", Digest: "12345"}}},
-		}},
+		{
+			name: "one chart",
+			charts: []*models.Chart{
+				{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1"}}},
+			},
+			chartFiles: &models.ChartFiles{Values: "best chart ever"},
+		},
+		{
+			name: "two charts",
+			charts: []*models.Chart{
+				{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
+				{Repo: testRepo, ID: "my-repo/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}, {Version: "1.2.2", Digest: "12345"}}},
+			},
+			chartFiles: &models.ChartFiles{Values: "best chart ever"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -82,6 +94,12 @@ func Test_GetCharts(t *testing.T) {
 			m.On("All", &chartsList).Run(func(args mock.Arguments) {
 				*args.Get(0).(*[]*models.Chart) = tt.charts
 			})
+
+			if tt.chartFiles != nil {
+				m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+					*args.Get(0).(*models.ChartFiles) = *tt.chartFiles
+				})
+			}
 
 			res, err := http.Get(ts.URL + pathPrefix + "/ns/kubeapps/charts")
 			assert.NoError(t, err)
@@ -103,18 +121,33 @@ func Test_GetChartsInRepo(t *testing.T) {
 	defer ts.Close()
 
 	tests := []struct {
-		name   string
-		repo   string
-		charts []*models.Chart
+		name       string
+		repo       string
+		charts     []*models.Chart
+		chartFiles *models.ChartFiles
 	}{
-		{"repo has no charts", "my-repo", []*models.Chart{}},
-		{"repo has one chart", "my-repo", []*models.Chart{
-			{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
-		}},
-		{"repo has many charts", "my-repo", []*models.Chart{
-			{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
-			{Repo: testRepo, ID: "my-repo/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}, {Version: "1.2.2", Digest: "12345"}}},
-		}},
+		{
+			name:   "repo has no charts",
+			repo:   "my-repo",
+			charts: []*models.Chart{},
+		},
+		{
+			name: "repo has one chart",
+			repo: "my-repo",
+			charts: []*models.Chart{
+				{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
+			},
+			chartFiles: &models.ChartFiles{Values: "best chart ever"},
+		},
+		{
+			name: "repo has many charts",
+			repo: "my-repo",
+			charts: []*models.Chart{
+				{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.0.1", Digest: "123"}}},
+				{Repo: testRepo, ID: "my-repo/dokuwiki", ChartVersions: []models.ChartVersion{{Version: "1.2.3", Digest: "1234"}, {Version: "1.2.2", Digest: "12345"}}},
+			},
+			chartFiles: &models.ChartFiles{Values: "best chart ever"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -124,6 +157,12 @@ func Test_GetChartsInRepo(t *testing.T) {
 			m.On("All", &chartsList).Run(func(args mock.Arguments) {
 				*args.Get(0).(*[]*models.Chart) = tt.charts
 			})
+
+			if tt.chartFiles != nil {
+				m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+					*args.Get(0).(*models.ChartFiles) = *tt.chartFiles
+				})
+			}
 
 			res, err := http.Get(ts.URL + pathPrefix + "/ns/kubeapps/charts/" + tt.repo)
 			assert.NoError(t, err)
@@ -145,28 +184,29 @@ func Test_GetChartInRepo(t *testing.T) {
 	defer ts.Close()
 
 	tests := []struct {
-		name     string
-		err      error
-		chart    models.Chart
-		wantCode int
+		name       string
+		err        error
+		chart      models.Chart
+		wantCode   int
+		chartFiles *models.ChartFiles
 	}{
 		{
-			"chart does not exist",
-			errors.New("return an error when checking if chart exists"),
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			err:      errors.New("return an error when checking if chart exists"),
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
-			http.StatusOK,
+			name:       "chart exists",
+			chart:      models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
+			wantCode:   http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best chart ever"},
 		},
 		{
-			"chart has multiple versions",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
-			http.StatusOK,
+			name:       "chart has multiple versions",
+			chart:      models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
+			wantCode:   http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best chart ever"},
 		},
 	}
 
@@ -179,6 +219,12 @@ func Test_GetChartInRepo(t *testing.T) {
 			} else {
 				m.On("One", &models.Chart{}).Return(nil).Run(func(args mock.Arguments) {
 					*args.Get(0).(*models.Chart) = tt.chart
+				})
+			}
+
+			if tt.chartFiles != nil {
+				m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+					*args.Get(0).(*models.ChartFiles) = *tt.chartFiles
 				})
 			}
 
@@ -198,28 +244,29 @@ func Test_ListChartVersions(t *testing.T) {
 	defer ts.Close()
 
 	tests := []struct {
-		name     string
-		err      error
-		chart    models.Chart
-		wantCode int
+		name       string
+		err        error
+		chart      models.Chart
+		wantCode   int
+		chartFiles *models.ChartFiles
 	}{
 		{
-			"chart does not exist",
-			errors.New("return an error when checking if chart exists"),
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			err:      errors.New("return an error when checking if chart exists"),
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
-			http.StatusOK,
+			name:       "chart exists",
+			chart:      models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
+			wantCode:   http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best chart ever"},
 		},
 		{
-			"chart has multiple versions",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
-			http.StatusOK,
+			name:       "chart has multiple versions",
+			chart:      models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
+			wantCode:   http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best chart ever"},
 		},
 	}
 
@@ -232,6 +279,12 @@ func Test_ListChartVersions(t *testing.T) {
 			} else {
 				m.On("One", &models.Chart{}).Return(nil).Run(func(args mock.Arguments) {
 					*args.Get(0).(*models.Chart) = tt.chart
+				})
+			}
+
+			if tt.chartFiles != nil {
+				m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+					*args.Get(0).(*models.ChartFiles) = *tt.chartFiles
 				})
 			}
 
@@ -251,28 +304,29 @@ func Test_GetChartVersion(t *testing.T) {
 	defer ts.Close()
 
 	tests := []struct {
-		name     string
-		err      error
-		chart    models.Chart
-		wantCode int
+		name       string
+		err        error
+		chart      models.Chart
+		wantCode   int
+		chartFiles *models.ChartFiles
 	}{
 		{
-			"chart does not exist",
-			errors.New("return an error when checking if chart exists"),
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			err:      errors.New("return an error when checking if chart exists"),
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
-			http.StatusOK,
+			name:     "chart exists",
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}}},
+			wantCode: http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best chart ever"},
 		},
 		{
-			"chart has multiple versions",
-			nil,
-			models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
-			http.StatusOK,
+			name:     "chart has multiple versions",
+			chart:    models.Chart{Repo: testRepo, ID: "my-repo/my-chart", ChartVersions: []models.ChartVersion{{Version: "0.1.0"}, {Version: "0.0.1"}}},
+			wantCode: http.StatusOK,
+			chartFiles: &models.ChartFiles{Values: "best chart ever"},
 		},
 	}
 
@@ -285,6 +339,12 @@ func Test_GetChartVersion(t *testing.T) {
 			} else {
 				m.On("One", &models.Chart{}).Return(nil).Run(func(args mock.Arguments) {
 					*args.Get(0).(*models.Chart) = tt.chart
+				})
+			}
+
+			if tt.chartFiles != nil {
+				m.On("One", &models.ChartFiles{}).Run(func(args mock.Arguments) {
+					*args.Get(0).(*models.ChartFiles) = *tt.chartFiles
 				})
 			}
 
@@ -310,22 +370,20 @@ func Test_GetChartIcon(t *testing.T) {
 		wantCode int
 	}{
 		{
-			"chart does not exist",
-			errors.New("return an error when checking if chart exists"),
-			models.Chart{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			err:      errors.New("return an error when checking if chart exists"),
+			chart:    models.Chart{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart has icon",
-			nil,
-			models.Chart{ID: "my-repo/my-chart", RawIcon: iconBytes()},
-			http.StatusOK,
+			name:     "chart has icon",
+			chart:    models.Chart{ID: "my-repo/my-chart", RawIcon: iconBytes()},
+			wantCode: http.StatusOK,
 		},
 		{
-			"chart does not have a icon",
-			nil,
-			models.Chart{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not have a icon",
+			chart:    models.Chart{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 	}
 
@@ -364,25 +422,23 @@ func Test_GetChartReadme(t *testing.T) {
 		wantCode int
 	}{
 		{
-			"chart does not exist",
-			"0.1.0",
-			errors.New("return an error when checking if chart exists"),
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			version:  "0.1.0",
+			err:      errors.New("return an error when checking if chart exists"),
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			"1.2.3",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart", Readme: testChartReadme},
-			http.StatusOK,
+			name:     "chart exists",
+			version:  "1.2.3",
+			files:    models.ChartFiles{ID: "my-repo/my-chart", Readme: testChartReadme},
+			wantCode: http.StatusOK,
 		},
 		{
-			"chart does not have a readme",
-			"1.1.1",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not have a readme",
+			version:  "1.1.1",
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 	}
 
@@ -421,25 +477,23 @@ func Test_GetChartValues(t *testing.T) {
 		wantCode int
 	}{
 		{
-			"chart does not exist",
-			"0.1.0",
-			errors.New("return an error when checking if chart exists"),
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			version:  "0.1.0",
+			err:      errors.New("return an error when checking if chart exists"),
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			"3.2.1",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart", Values: testChartValues},
-			http.StatusOK,
+			name:     "chart exists",
+			version:  "3.2.1",
+			files:    models.ChartFiles{ID: "my-repo/my-chart", ValueFiles: []models.ValueFile{{Name: "values.yaml", Content: testChartValues}}},
+			wantCode: http.StatusOK,
 		},
 		{
-			"chart does not have values.yaml",
-			"2.2.2",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusOK,
+			name:     "chart does not have values.yaml",
+			version:  "2.2.2",
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusOK,
 		},
 	}
 
@@ -455,7 +509,7 @@ func Test_GetChartValues(t *testing.T) {
 				})
 			}
 
-			res, err := http.Get(ts.URL + pathPrefix + "/ns/kubeapps/assets/" + tt.files.ID + "/versions/" + tt.version + "/values.yaml")
+			res, err := http.Get(ts.URL + pathPrefix + "/ns/kubeapps/assets/" + tt.files.ID + "/versions/" + tt.version + "/values/values.yaml")
 			assert.NoError(t, err)
 			defer res.Body.Close()
 
@@ -478,25 +532,23 @@ func Test_GetChartSchema(t *testing.T) {
 		wantCode int
 	}{
 		{
-			"chart does not exist",
-			"0.1.0",
-			errors.New("return an error when checking if chart exists"),
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusNotFound,
+			name:     "chart does not exist",
+			version:  "0.1.0",
+			err:      errors.New("return an error when checking if chart exists"),
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusNotFound,
 		},
 		{
-			"chart exists",
-			"3.2.1",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart", Schema: testChartSchema},
-			http.StatusOK,
+			name:     "chart exists",
+			version:  "3.2.1",
+			files:    models.ChartFiles{ID: "my-repo/my-chart", Schema: testChartSchema},
+			wantCode: http.StatusOK,
 		},
 		{
-			"chart does not have values.schema.json",
-			"2.2.2",
-			nil,
-			models.ChartFiles{ID: "my-repo/my-chart"},
-			http.StatusOK,
+			name:     "chart does not have values.schema.json",
+			version:  "2.2.2",
+			files:    models.ChartFiles{ID: "my-repo/my-chart"},
+			wantCode: http.StatusOK,
 		},
 	}
 

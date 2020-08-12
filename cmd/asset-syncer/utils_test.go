@@ -31,6 +31,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -344,7 +345,7 @@ func Test_extractFilesFromTarball(t *testing.T) {
 			createTestTarball(&b, tt.files)
 			r := bytes.NewReader(b.Bytes())
 			tarf := tar.NewReader(r)
-			files, err := extractFilesFromTarball([]string{tt.filename}, tarf)
+			files, err := extractFilesFromTarball([]fileMatcher{{FileName: &tt.filename, Matcher: regexp.MustCompile("(?i)" + tt.filename)}}, tarf)
 			assert.NoErr(t, err)
 			assert.Equal(t, files[tt.filename], tt.want, "file body")
 		})
@@ -356,7 +357,10 @@ func Test_extractFilesFromTarball(t *testing.T) {
 		createTestTarball(&b, tFiles)
 		r := bytes.NewReader(b.Bytes())
 		tarf := tar.NewReader(r)
-		files, err := extractFilesFromTarball([]string{tFiles[0].Name, tFiles[1].Name}, tarf)
+		files, err := extractFilesFromTarball([]fileMatcher{
+			{FileName: &tFiles[0].Name, Matcher: regexp.MustCompile("(?i)" + tFiles[0].Name)},
+			{FileName: &tFiles[1].Name, Matcher: regexp.MustCompile("(?i)" + tFiles[1].Name)},
+		}, tarf)
 		assert.NoErr(t, err)
 		assert.Equal(t, len(files), 2, "matches")
 		for _, f := range tFiles {
@@ -370,7 +374,7 @@ func Test_extractFilesFromTarball(t *testing.T) {
 		r := bytes.NewReader(b.Bytes())
 		tarf := tar.NewReader(r)
 		name := "file2.txt"
-		files, err := extractFilesFromTarball([]string{name}, tarf)
+		files, err := extractFilesFromTarball([]fileMatcher{{FileName: &name, Matcher: regexp.MustCompile("(?i)" + name)}}, tarf)
 		assert.NoErr(t, err)
 		assert.Equal(t, files[name], "", "file body")
 	})
@@ -380,7 +384,8 @@ func Test_extractFilesFromTarball(t *testing.T) {
 		rand.Read(b)
 		r := bytes.NewReader(b)
 		tarf := tar.NewReader(r)
-		files, err := extractFilesFromTarball([]string{"file2.txt"}, tarf)
+		name := "file2.txt"
+		files, err := extractFilesFromTarball([]fileMatcher{{FileName: &name, Matcher: regexp.MustCompile("(?i)" + name)}}, tarf)
 		assert.Err(t, io.ErrUnexpectedEOF, err)
 		assert.Equal(t, len(files), 0, "file body")
 	})
@@ -579,6 +584,7 @@ func Test_fetchAndImportFiles(t *testing.T) {
 			Schema: "",
 			Repo:   charts[0].Repo,
 			Digest: cv.Digest,
+			ValueFiles: []models.ValueFile{},
 		})
 
 		manager := getMockManager(&m)
@@ -596,10 +602,11 @@ func Test_fetchAndImportFiles(t *testing.T) {
 		m.On("Upsert", bson.M{"file_id": chartFilesID, "repo.name": repo.Name, "repo.namespace": repo.Namespace}, models.ChartFiles{
 			ID:     chartFilesID,
 			Readme: testChartReadme,
-			Values: testChartValues,
+			Values: "",
 			Schema: testChartSchema,
 			Repo:   charts[0].Repo,
 			Digest: cv.Digest,
+			ValueFiles: []models.ValueFile{{Name: "values.yaml", Content: testChartValues}},
 		})
 		manager := getMockManager(&m)
 		fImporter := fileImporter{manager}
@@ -617,10 +624,11 @@ func Test_fetchAndImportFiles(t *testing.T) {
 		m.On("Upsert", bson.M{"file_id": chartFilesID, "repo.name": repo.Name, "repo.namespace": repo.Namespace}, models.ChartFiles{
 			ID:     chartFilesID,
 			Readme: testChartReadme,
-			Values: testChartValues,
+			Values: "",
 			Schema: testChartSchema,
 			Repo:   charts[0].Repo,
 			Digest: cv.Digest,
+			ValueFiles: []models.ValueFile{{Name: "values.yaml", Content: testChartValues}},
 		})
 		manager := getMockManager(&m)
 		fImporter := fileImporter{manager}
