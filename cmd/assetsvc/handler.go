@@ -394,6 +394,7 @@ func chartVersionAttributes(namespace, cid string, cv models.ChartVersion) model
 	firstValue := ""
 
 	if len(existingValues) > 0 {
+		cv.ValuesFiles = existingValues
 		firstValue = existingValues[0]
 	}
 

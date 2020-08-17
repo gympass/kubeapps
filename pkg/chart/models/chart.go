@@ -75,14 +75,15 @@ type ChartVersion struct {
 	// The following three fields get set with the URL paths to the respective
 	// chart files (as opposed to the similar fields on ChartFiles which
 	// contain the actual content).
-	Readme string `json:"readme" bson:"-"`
-	Values string `json:"values" bson:"-"`
-	Schema string `json:"schema" bson:"-"`
+	Readme      string   `json:"readme" bson:"-"`
+	Values      string   `json:"values" bson:"-"`
+	Schema      string   `json:"schema" bson:"-"`
+	ValuesFiles []string `json:"values_files" bson:"-"`
 }
 
 type ValueFile struct {
-	Name		string
-	Content		string
+	Name    string
+	Content string
 }
 
 // ChartFiles holds the README and values for a given chart version
@@ -90,10 +91,10 @@ type ChartFiles struct {
 	ID     string `bson:"file_id"`
 	Readme string
 	// This attribute exists for compatibility purposes. All value files will be under ValueFiles attribute
-	Values string
-	Schema string
-	Repo   *Repo
-	Digest string
+	Values     string
+	Schema     string
+	Repo       *Repo
+	Digest     string
 	ValueFiles []ValueFile
 }
 
