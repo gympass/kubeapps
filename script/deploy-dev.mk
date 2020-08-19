@@ -9,7 +9,7 @@ deploy-dex: devel/dex.crt devel/dex.key
 	kubectl -n dex create secret tls dex-web-server-tls \
 		--key ./devel/dex.key \
 		--cert ./devel/dex.crt
-	helm install dex stable/dex --namespace dex --version 2.4.0 \
+	helm install dex stable/dex --namespace dex --version 2.13.0 \
 		--values ./docs/user/manifests/kubeapps-local-dev-dex-values.yaml
 
 deploy-openldap:
@@ -17,14 +17,22 @@ deploy-openldap:
 	helm install ldap stable/openldap --namespace ldap \
 		--values ./docs/user/manifests/kubeapps-local-dev-openldap-values.yaml
 
-deploy-dev: deploy-dex deploy-openldap
+devel/localhost-cert.pem:
+	mkcert -key-file ./devel/localhost-key.pem -cert-file ./devel/localhost-cert.pem localhost 172.18.0.2
+
+deploy-dependencies: deploy-dex deploy-openldap devel/localhost-cert.pem
 	kubectl create namespace kubeapps
+	kubectl -n kubeapps create secret tls localhost-tls \
+		--key ./devel/localhost-key.pem \
+		--cert ./devel/localhost-cert.pem
+
+deploy-dev: deploy-dependencies
 	helm install kubeapps ./chart/kubeapps --namespace kubeapps \
 		--values ./docs/user/manifests/kubeapps-local-dev-values.yaml \
 		--values ./docs/user/manifests/kubeapps-local-dev-auth-proxy-values.yaml \
 		--values ./docs/user/manifests/kubeapps-local-dev-additional-kind-cluster.yaml \
 		--set useHelm3=true
-	@echo "\nYou can now simply open your browser at http://172.18.0.2:30000 to access Kubeapps!"
+	@echo "\nYou can now simply open your browser at https://localhost/ to access Kubeapps!"
 	@echo "When logging in, you will be redirected to dex (with a self-signed cert) and can login with email as either of"
 	@echo "  kubeapps-operator@example.com:password"
 	@echo "  kubeapps-user@example.com:password"
@@ -39,4 +47,4 @@ reset-dev:
 	helm -n ldap delete ldap || true
 	kubectl delete namespace --wait dex ldap kubeapps || true
 
-.PHONY: deploy-dex deploy-dev deploy-openldap reset-dev update-apiserver-etc-hosts
+.PHONY: deploy-dex deploy-dependencies deploy-dev deploy-openldap reset-dev update-apiserver-etc-hosts

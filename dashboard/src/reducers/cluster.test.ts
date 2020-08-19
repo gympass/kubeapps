@@ -13,8 +13,8 @@ describe("clusterReducer", () => {
     currentCluster: "initial-cluster",
     clusters: {
       default: {
-        currentNamespace: "default",
-        namespaces: ["default"],
+        currentNamespace: "initial-namespace",
+        namespaces: ["default", "initial-namespace"],
       },
       "initial-cluster": {
         currentNamespace: "initial-namespace",
@@ -32,29 +32,32 @@ describe("clusterReducer", () => {
     describe("changes the current stored namespace if it is in the URL", () => {
       const testCases = [
         {
+          name: "updates both the cluster and namespace",
           path: "/c/default/ns/cyberdyne/apps",
           currentNamespace: "cyberdyne",
           currentCluster: "default",
         },
         {
+          name: "does not change cluster or namespace when neither is in url",
           path: "/cyberdyne/apps",
           currentNamespace: "initial-namespace",
           currentCluster: "initial-cluster",
         },
         {
-          path: "/c/barcluster/ns/T-600/charts",
-          currentNamespace: "T-600",
-          currentCluster: "barcluster",
-        },
-        {
-          // It still updates the current namespace for a non-multicluster route.
+          name: "updates namespace for a non-multicluster URI",
           path: "/ns/default/operators",
           currentNamespace: "default",
           currentCluster: "initial-cluster",
         },
+        {
+          name: "updates cluster for a non-namespaced URI",
+          path: "/c/default/config/brokers",
+          currentNamespace: "initial-namespace",
+          currentCluster: "default",
+        },
       ];
       testCases.forEach(tc => {
-        it(tc.path, () =>
+        it(tc.name, () =>
           expect(
             clusterReducer(initialTestState, {
               type: LOCATION_CHANGE,
@@ -313,17 +316,17 @@ describe("clusterReducer", () => {
       oauthLogoutURI: "",
       featureFlags: {
         operators: false,
-        additionalClusters: [
-          {
-            name: "additionalCluster1",
-            apiServiceURL: "https://not-used-by-dashboard.example.com/",
-          },
-          {
-            name: "additionalCluster2",
-            apiServiceURL: "https://not-used-by-dashboard.example.com/",
-          },
-        ],
       },
+      clusters: [
+        {
+          name: "additionalCluster1",
+          apiServiceURL: "https://not-used-by-dashboard.example.com/",
+        },
+        {
+          name: "additionalCluster2",
+          apiServiceURL: "https://not-used-by-dashboard.example.com/",
+        },
+      ],
     } as IConfig;
     it("adds the additional clusters to the clusters state", () => {
       expect(
@@ -351,9 +354,9 @@ describe("clusterReducer", () => {
       const badConfig = {
         ...config,
       };
-      // Manually delete additionalClusters so typescript doesn't complain
+      // Manually delete clusters so typescript doesn't complain
       // while still allowing us to test the case where it is not present.
-      delete badConfig.featureFlags.additionalClusters;
+      delete badConfig.clusters;
       expect(
         clusterReducer(initialTestState, {
           type: getType(actions.config.receiveConfig),

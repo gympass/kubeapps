@@ -32,22 +32,36 @@ export const app = {
     ) => `${app.charts.get(cluster, namespace, chartName, repo)}/versions/${chartVersion}`,
   },
   operators: {
-    view: (namespace: string, name: string) => `/ns/${namespace}/operators/${name}`,
-    list: (namespace: string) => `/ns/${namespace}/operators`,
-    new: (namespace: string, name: string) => `/ns/${namespace}/operators/new/${name}`,
+    view: (cluster: string, namespace: string, name: string) =>
+      `/c/${cluster}/ns/${namespace}/operators/${name}`,
+    list: (cluster: string, namespace: string) => `/c/${cluster}/ns/${namespace}/operators`,
+    new: (cluster: string, namespace: string, name: string) =>
+      `/c/${cluster}/ns/${namespace}/operators/new/${name}`,
   },
   operatorInstances: {
-    view: (namespace: string, csvName: string, crdName: string, resourceName: string) =>
-      `/ns/${namespace}/operators-instances/${csvName}/${crdName}/${resourceName}`,
-    update: (namespace: string, csvName: string, crdName: string, instanceName: string) =>
-      `/ns/${namespace}/operators-instances/${csvName}/${crdName}/${instanceName}/update`,
-    new: (namespace: string, csvName: string, crdName: string) =>
-      `/ns/${namespace}/operators-instances/new/${csvName}/${crdName}`,
+    view: (
+      cluster: string,
+      namespace: string,
+      csvName: string,
+      crdName: string,
+      resourceName: string,
+    ) => `/c/${cluster}/ns/${namespace}/operators-instances/${csvName}/${crdName}/${resourceName}`,
+    update: (
+      cluster: string,
+      namespace: string,
+      csvName: string,
+      crdName: string,
+      instanceName: string,
+    ) =>
+      `/c/${cluster}/ns/${namespace}/operators-instances/${csvName}/${crdName}/${instanceName}/update`,
+    new: (cluster: string, namespace: string, csvName: string, crdName: string) =>
+      `/c/${cluster}/ns/${namespace}/operators-instances/new/${csvName}/${crdName}`,
   },
   config: {
     apprepositories: (cluster: string, namespace: string) =>
       `/c/${cluster}/ns/${namespace}/config/repos`,
-    operators: (namespace: string) => `/ns/${namespace}/operators`,
+    brokers: (cluster: string) => `/c/${cluster}/config/brokers`,
+    operators: (cluster: string, namespace: string) => `/c/${cluster}/ns/${namespace}/operators`,
   },
 };
 

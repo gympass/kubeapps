@@ -38,7 +38,7 @@ const privateRoutes = {
   "/c/:cluster/ns/:namespace/:global(global)-charts/:repo/:id": ChartViewContainer,
   "/c/:cluster/ns/:namespace/charts/:repo/:id/versions/:version": ChartViewContainer,
   "/c/:cluster/ns/:namespace/:global(global)-charts/:repo/:id/versions/:version": ChartViewContainer,
-  "/config/brokers": ServiceBrokerListContainer,
+  "/c/:cluster/config/brokers": ServiceBrokerListContainer,
   "/services/brokers/:brokerName/classes/:className": ServiceClassViewContainer,
   "/services/brokers/:brokerName/instances/ns/:namespace/:instanceName": ServiceInstanceViewContainer,
   "/services/classes": ServiceClassListContainer,
@@ -59,19 +59,19 @@ interface IRoutesProps extends IRouteComponentPropsAndRouteProps {
 
 class Routes extends React.Component<IRoutesProps> {
   public static defaultProps = {
-    featureFlags: { operators: false, additionalClusters: [], ui: "hex" },
+    featureFlags: { operators: false, ui: "hex" },
   };
   public render() {
     const reposPath = "/c/:cluster/ns/:namespace/config/repos";
     if (this.props.featureFlags.operators) {
       // Add routes related to operators
       Object.assign(privateRoutes, {
-        "/ns/:namespace/operators": OperatorsListContainer,
-        "/ns/:namespace/operators/:operator": OperatorViewContainer,
-        "/ns/:namespace/operators/new/:operator": OperatorNewContainer,
-        "/ns/:namespace/operators-instances/new/:csv/:crd": OperatorInstanceCreateContainer,
-        "/ns/:namespace/operators-instances/:csv/:crd/:instanceName": OperatorInstanceViewContainer,
-        "/ns/:namespace/operators-instances/:csv/:crd/:instanceName/update": OperatorInstanceUpdateContainer,
+        "/c/:cluster/ns/:namespace/operators": OperatorsListContainer,
+        "/c/:cluster/ns/:namespace/operators/:operator": OperatorViewContainer,
+        "/c/:cluster/ns/:namespace/operators/new/:operator": OperatorNewContainer,
+        "/c/:cluster/ns/:namespace/operators-instances/new/:csv/:crd": OperatorInstanceCreateContainer,
+        "/c/:cluster/ns/:namespace/operators-instances/:csv/:crd/:instanceName": OperatorInstanceViewContainer,
+        "/c/:cluster/ns/:namespace/operators-instances/:csv/:crd/:instanceName/update": OperatorInstanceUpdateContainer,
       });
     }
     return (

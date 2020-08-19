@@ -2,6 +2,40 @@
 
 The purpose of this document is to guide you through the process of releasing a new version of Kubeapps.
 
+## 0 - Ensure all 3rd-party images are up to date
+
+The [values.yaml](../../chart/kubeapps/values.yaml) uses the following Bitnami images for various services:
+
+* [bitnami/nginx](https://hub.docker.com/r/bitnami/nginx/tags)
+* [bitnami/kubectl](https://hub.docker.com/r/bitnami/kubectl/tags)
+* [bitnami/oauth2-proxy](https://hub.docker.com/r/bitnami/oauth2-proxy/tags)
+
+while the [dashboard/Dockerfile](../../dashboard/Dockerfile) uses bitnami/nginx and [bitnami/node](https://hub.docker.com/r/bitnami/node/tags) also (though the latter is a rolling tag since it's a build-only image).
+
+All tags for these images should be updated to their latest compatible versions and security patches.
+
+The chart [requirements.yaml](../../chart/kubeapps/requirements.yaml) should also be checked to ensure the version includes the latest dependent charts. You can then run
+
+```bash
+helm dependency list ./chart/kubeapps
+```
+
+to see if the latest versions are included, and
+
+```bash
+helm dependency update ./chart/kubeapps
+```
+
+to update the requirements.lock file.
+
+Lastly, running
+
+```bash
+yarn upgrade
+```
+
+in the dashboard directory will update the frontend packages to the latest compatible versions.
+
 ## 1 - Create a new git tag
 
 The first step is to tag the repository master branch tip and push it upstream. It is important to note that the tag name will be used as release name.

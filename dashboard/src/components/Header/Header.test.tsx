@@ -23,11 +23,31 @@ const defaultProps = {
   setNamespace: jest.fn(),
   createNamespace: jest.fn(),
   getNamespace: jest.fn(),
-  featureFlags: { operators: false, additionalClusters: [], ui: "hex" },
+  featureFlags: { operators: false, ui: "hex" },
   appVersion: "",
+  isServiceCatalogInstalled: false,
 };
 it("renders the header links and titles", () => {
   const wrapper = shallow(<Header {...defaultProps} />);
+  const menubar = wrapper.find(".header__nav__menu").first();
+  const items = menubar.children().map(p => p.props().children.props);
+  const expectedItems = [
+    { children: "Applications", to: app.apps.list("default", "default") },
+    { children: "Catalog", to: app.catalog("default", "default") },
+  ];
+  expect(items.length).toEqual(expectedItems.length);
+  expectedItems.forEach((expectedItem, index) => {
+    expect(expectedItem.children).toBe(items[index].children);
+    expect(expectedItem.to).toBe(items[index].to);
+  });
+});
+
+it("includes the service instances when the broker is installed", () => {
+  const props = {
+    ...defaultProps,
+    isServiceCatalogInstalled: true,
+  };
+  const wrapper = shallow(<Header {...props} />);
   const menubar = wrapper.find(".header__nav__menu").first();
   const items = menubar.children().map(p => p.props().children.props);
   const expectedItems = [
@@ -54,7 +74,7 @@ describe("settings", () => {
     const items = settingsbar.find("NavLink").map(p => p.props());
     const expectedItems = [
       { children: "App Repositories", to: "/c/default/ns/default/config/repos" },
-      { children: "Service Brokers", to: "/config/brokers" },
+      { children: "Service Brokers", to: "/c/default/config/brokers" },
     ];
     items.forEach((item, index) => {
       expect(item.children).toBe(expectedItems[index].children);
@@ -70,8 +90,8 @@ describe("settings", () => {
     const items = settingsbar.find("NavLink").map(p => p.props());
     const expectedItems = [
       { children: "App Repositories", to: "/c/default/ns/default/config/repos" },
-      { children: "Service Brokers", to: "/config/brokers" },
-      { children: "Operators", to: "/ns/default/operators" },
+      { children: "Service Brokers", to: "/c/default/config/brokers" },
+      { children: "Operators", to: "/c/default/ns/default/operators" },
     ];
     items.forEach((item, index) => {
       expect(item.children).toBe(expectedItems[index].children);
