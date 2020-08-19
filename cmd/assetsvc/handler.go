@@ -267,49 +267,6 @@ func getChartVersionSchema(w http.ResponseWriter, req *http.Request, params Para
 	w.Write([]byte(files.Schema))
 }
 
-func getChartVersionValueFiles(w http.ResponseWriter, req *http.Request, params Params){
-	chartID := fmt.Sprintf("%s/%s", params["repo"], params["chartName"])
-	namespace := params["namespace"]
-	version := params["version"]
-	var chartVersion *models.ChartVersion
-	chart, err := manager.getChart(namespace, chartID)
-
-	if err != nil {
-		log.WithError(err).Errorf("could not find chart with id %s", chartID)
-		response.NewErrorResponse(http.StatusNotFound, "could not find chart version").Write(w)
-		return
-	}
-
-	for _, cv := range chart.ChartVersions{
-		if cv.Version == version{
-			chartVersion = &cv
-		}
-	}
-
-	if chartVersion == nil {
-		log.WithError(err).Errorf("could not find chart with version %s", version)
-		response.NewErrorResponse(http.StatusNotFound, "could not find chart version").Write(w)
-		return
-	}
-
-	chartPath := fmt.Sprintf("%s/ns/%s/charts/%s/versions/%s/values", pathPrefix, namespace, chart.ID, chartVersion.Version)
-	relationships := make(relMap)
-
-	for _, values := range listValuesFiles(namespace, chartID, *chartVersion){
-		relationships[values] = rel{Data: values, Links: selfLink{ chartPath + "/" + values }}
-	}
-
-	valuesResponse := apiResponse{
-		Type:       "valuesFiles",
-		ID:         chartID,
-		Attributes: blankRawIconAndChartVersions(chartAttributes(namespace, chart)),
-		Relationships: relationships,
-	}
-
-
-	response.NewDataResponse(valuesResponse).Write(w)
-}
-
 // Returns names of all available values files.
 func listValuesFiles(namespace string, cid string, cv models.ChartVersion) []string{
 	fileID := fmt.Sprintf("%s-%s", cid, cv.Version)
@@ -403,6 +360,7 @@ func chartVersionAttributes(namespace, cid string, cv models.ChartVersion) model
 
 	if firstValue != "" {
 		cv.Values = versionPath + "values/" + firstValue
+		cv.ValuesName = firstValue
 	}
 
 	return cv

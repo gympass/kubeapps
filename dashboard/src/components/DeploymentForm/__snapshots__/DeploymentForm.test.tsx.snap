@@ -42,6 +42,7 @@ exports[`renders the full DeploymentForm 1`] = `
         cluster="default"
         deploymentEvent="install"
         getChartVersion={[MockFunction]}
+        hasValuesChanged={false}
         namespace="default"
         push={[MockFunction]}
         selected={
@@ -63,7 +64,9 @@ exports[`renders the full DeploymentForm 1`] = `
           }
         }
         setValues={[Function]}
+        setValuesFile={[Function]}
         setValuesModified={[Function]}
+        setValuesUnmodified={[Function]}
       />
     </div>
   </div>

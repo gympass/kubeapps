@@ -31,6 +31,8 @@ const testVersion: IChartVersion = {
     version: "1.2.3",
     app_version: "4.5.6",
     created: "",
+    values_files: ["values.yaml"],
+    values_name: "values.yaml",
   },
   id: "1",
   relationships: { chart: testChart },

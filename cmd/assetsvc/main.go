@@ -56,7 +56,6 @@ func setupRoutes() http.Handler {
 	apiv1.Methods("GET").Path("/ns/{namespace}/assets/{repo}/{chartName}/versions/{version}/values.yaml").Handler(WithParams(redirectValuesYaml))
 	apiv1.Methods("GET").Path("/ns/{namespace}/assets/{repo}/{chartName}/versions/{version}/values.schema.json").Handler(WithParams(getChartVersionSchema))
 	apiv1.Methods("GET").Path("/ns/{namespace}/assets/{repo}/{chartName}/versions/{version}/values/{valuesName}").Handler(WithParams(getChartVersionValues))
-	apiv1.Methods("GET").Path("/ns/{namespace}/assets/{repo}/{chartName}/versions/{version}/values").Handler(WithParams(getChartVersionValueFiles))
 
 
 	n := negroni.Classic()

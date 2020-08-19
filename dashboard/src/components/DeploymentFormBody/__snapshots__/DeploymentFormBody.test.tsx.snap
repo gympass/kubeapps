@@ -38,6 +38,18 @@ exports[`renders the full DeploymentFormBody 1`] = `
       </option>
     </select>
   </div>
+  <div>
+    <label
+      htmlFor="chartValues"
+    >
+      Values files
+    </label>
+    <select
+      id="chartValues"
+      onChange={[Function]}
+      required={true}
+    />
+  </div>
   <div
     className="margin-t-normal"
   >

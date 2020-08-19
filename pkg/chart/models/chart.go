@@ -79,6 +79,7 @@ type ChartVersion struct {
 	Values      string   `json:"values" bson:"-"`
 	Schema      string   `json:"schema" bson:"-"`
 	ValuesFiles []string `json:"values_files" bson:"-"`
+	ValuesName   string   `json:"values_name" bson:"-"`
 }
 
 type ValueFile struct {

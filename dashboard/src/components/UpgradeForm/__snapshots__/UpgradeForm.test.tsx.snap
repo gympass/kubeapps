@@ -35,6 +35,7 @@ exports[`renders the full UpgradeForm 1`] = `
         deploymentEvent="upgrade"
         getChartVersion={[MockFunction]}
         goBack={[MockFunction]}
+        hasValuesChanged={false}
         namespace="default"
         push={[MockFunction]}
         releaseVersion="1.0.0"
@@ -58,6 +59,7 @@ exports[`renders the full UpgradeForm 1`] = `
         }
         setValues={[Function]}
         setValuesModified={[Function]}
+        setValuesUnmodified={[Function]}
       />
     </div>
   </div>
