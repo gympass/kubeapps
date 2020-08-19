@@ -32,9 +32,14 @@ export default class Chart {
     return data;
   }
 
-  public static async getValues(namespace: string, id: string, version: string) {
+  public static async getValues(
+    namespace: string,
+    id: string,
+    version: string,
+    valuesName: string,
+  ) {
     const { data } = await axiosWithAuth.get<string>(
-      URL.api.charts.getValues(namespace, id, version),
+      URL.api.charts.getValues(namespace, id, version, valuesName),
     );
     return data;
   }

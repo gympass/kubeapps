@@ -90,7 +90,7 @@ describe("fetchChartVersions", () => {
 
 describe("getChartVersion", () => {
   it("gets a chart version", async () => {
-    response = { id: "foo" };
+    response = { id: "foo", attributes: { values: "values/values-xyz.yaml" } };
     const expectedActions = [
       { type: getType(actions.charts.requestCharts) },
       {
@@ -98,6 +98,7 @@ describe("getChartVersion", () => {
         payload: { chartVersion: response, schema: { data: response }, values: { data: response } },
       },
     ];
+
     await store.dispatch(actions.charts.getChartVersion(namespace, "foo", "1.0.0"));
     expect(store.getActions()).toEqual(expectedActions);
     expect(axiosGetMock.mock.calls[0][0]).toBe(
@@ -106,7 +107,7 @@ describe("getChartVersion", () => {
   });
 
   it("gets a chart version with tag", async () => {
-    response = { id: "foo" };
+    response = { id: "foo", attributes: { values: "values/values-xyz.yaml" } };
     const expectedActions = [
       { type: getType(actions.charts.requestCharts) },
       {
@@ -128,7 +129,7 @@ describe("getChartVersion", () => {
     axiosGetMock.mockImplementationOnce(() => {
       return {
         status: 200,
-        data: { data: { id: "foo" } },
+        data: { data: { id: "foo", attributes: { values: "values/values-xyz.yaml" } } },
       };
     });
     // Call to get the chart values
@@ -149,7 +150,11 @@ describe("getChartVersion", () => {
       { type: getType(actions.charts.requestCharts) },
       {
         type: getType(actions.charts.selectChartVersion),
-        payload: { chartVersion: { id: "foo" }, values: "foo: bar", schema: { properties: "foo" } },
+        payload: {
+          chartVersion: { id: "foo", attributes: { values: "values/values-xyz.yaml" } },
+          values: "foo: bar",
+          schema: { properties: "foo" },
+        },
       },
     ];
     await store.dispatch(actions.charts.getChartVersion(namespace, "foo", "1.0.0"));
@@ -162,7 +167,7 @@ describe("getChartVersion", () => {
       return {
         status: 200,
         data: {
-          data: { id: "foo" },
+          data: { id: "foo", attributes: { values: "values/values-xyz.yaml" } },
         },
       };
     });
@@ -178,7 +183,11 @@ describe("getChartVersion", () => {
       { type: getType(actions.charts.requestCharts) },
       {
         type: getType(actions.charts.selectChartVersion),
-        payload: { chartVersion: { id: "foo" }, values: "", schema: {} },
+        payload: {
+          chartVersion: { id: "foo", attributes: { values: "values/values-xyz.yaml" } },
+          values: "",
+          schema: {},
+        },
       },
     ];
     await store.dispatch(actions.charts.getChartVersion(namespace, "foo", "1.0.0"));
@@ -191,7 +200,7 @@ describe("getChartVersion", () => {
       return {
         status: 200,
         data: {
-          data: { id: "foo" },
+          data: { id: "foo", attributes: { values: "values/values-xyz.yaml" } },
         },
       };
     });
@@ -255,7 +264,7 @@ describe("fetchChartVersionsAndSelectVersion", () => {
 
 describe("getDeployedChartVersion", () => {
   it("should request a deployed chart", async () => {
-    response = { id: "foo" };
+    response = { id: "foo", attributes: { values: "values/values-xyz.yaml" } };
     const expectedActions = [
       { type: getType(actions.charts.requestDeployedChartVersion) },
       {

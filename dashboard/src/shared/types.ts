@@ -53,6 +53,8 @@ export interface IChartVersionAttributes {
   version: string;
   app_version: string;
   created: string;
+  values_files: string[];
+  values_name: string;
 }
 
 export interface IChart {
@@ -89,6 +91,8 @@ export interface IChartState {
     readmeError?: string;
     values?: string;
     schema?: any;
+    valuesName?: string;
+    valuesFiles?: string[];
   };
   deployed: {
     chartVersion?: IChartVersion;

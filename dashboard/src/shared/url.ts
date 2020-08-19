@@ -102,10 +102,10 @@ export const api = {
       `${api.charts.base}/ns/${namespace}/assets/${id}/versions/${encodeURIComponent(
         version,
       )}/README.md`,
-    getValues: (namespace: string, id: string, version: string) =>
+    getValues: (namespace: string, id: string, version: string, valuesName: string) =>
       `${api.charts.base}/ns/${namespace}/assets/${id}/versions/${encodeURIComponent(
         version,
-      )}/values.yaml`,
+      )}/values/${encodeURIComponent(valuesName)}`,
     getSchema: (namespace: string, id: string, version: string) =>
       `${api.charts.base}/ns/${namespace}/assets/${id}/versions/${encodeURIComponent(
         version,

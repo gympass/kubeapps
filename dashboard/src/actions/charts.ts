@@ -25,6 +25,10 @@ export const selectChartVersion = createAction("SELECT_CHART_VERSION", resolve =
     resolve({ chartVersion, values, schema });
 });
 
+export const selectChartVersionValues = createAction("SELECT_CHART_VERSION_VALUES", resolve => {
+  return (valuesName: string, values?: string) => resolve({ valuesName, values });
+});
+
 export const requestDeployedChartVersion = createAction("REQUEST_DEPLOYED_CHART_VERSION");
 
 export const receiveDeployedChartVersion = createAction(
@@ -56,6 +60,7 @@ const allActions = [
   resetChartVersion,
   selectReadme,
   errorReadme,
+  selectChartVersionValues,
 ];
 
 export type ChartsAction = ActionType<typeof allActions[number]>;
@@ -112,7 +117,10 @@ async function getChart(namespace: string, id: string, version: string) {
   const chartVersion = await Chart.getChartVersion(namespace, id, version);
   if (chartVersion) {
     try {
-      values = await Chart.getValues(namespace, id, version);
+      const {
+        attributes: { values_name: valuesName },
+      } = chartVersion;
+      values = await Chart.getValues(namespace, id, version, valuesName);
       schema = await Chart.getSchema(namespace, id, version);
     } catch (e) {
       if (e.constructor !== NotFoundError) {
@@ -191,6 +199,37 @@ export function getChartReadme(
       dispatch(selectReadme(readme));
     } catch (e) {
       dispatch(errorReadme(e.toString()));
+    }
+  };
+}
+
+export function getChartVersionValues(
+  namespace: string,
+  chartVersion: IChartVersion,
+  valuesName: string,
+): ThunkAction<Promise<void>, IStoreState, null, ChartsAction> {
+  return async dispatch => {
+    try {
+      const {
+        relationships: {
+          chart: {
+            data: {
+              name: chartName,
+              repo: { name: repoName },
+            },
+          },
+        },
+        attributes: { version },
+      } = chartVersion;
+
+      const id = `${repoName}/${chartName}`;
+
+      const values = await Chart.getValues(namespace, id, version, valuesName);
+      if (values) {
+        dispatch(selectChartVersionValues(valuesName, values));
+      }
+    } catch (e) {
+      dispatchError(dispatch, e);
     }
   };
 }

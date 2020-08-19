@@ -22,6 +22,7 @@ const defaultProps = {
   push: jest.fn(),
   fetchChartVersions: jest.fn(),
   getChartVersion: jest.fn(),
+  getChartVersionValues: jest.fn(),
   namespace: "default",
   cluster: "default",
 } as IDeploymentFormProps;
