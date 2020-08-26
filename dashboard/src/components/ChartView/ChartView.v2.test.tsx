@@ -31,7 +31,7 @@ const testVersion: IChartVersion = {
     version: "1.2.3",
     app_version: "4.5.6",
     created: "",
-    values_files: ["values.yaml"],
+    values_files: [{ name: "values.yaml", namespace: "kubeapps-namespace" }],
     values_name: "values.yaml",
   },
   id: "1",

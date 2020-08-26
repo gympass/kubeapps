@@ -204,7 +204,6 @@ export function getChartReadme(
 }
 
 export function getChartVersionValues(
-  namespace: string,
   chartVersion: IChartVersion,
   valuesName: string,
 ): ThunkAction<Promise<void>, IStoreState, null, ChartsAction> {
@@ -219,12 +218,16 @@ export function getChartVersionValues(
             },
           },
         },
-        attributes: { version },
+        attributes: { version, values_files: valuesFiles },
       } = chartVersion;
 
       const id = `${repoName}/${chartName}`;
 
-      const values = await Chart.getValues(namespace, id, version, valuesName);
+      const valuesNamespace = valuesFiles
+        .filter(v => v.name === valuesName)
+        .map(v => v.namespace)[0];
+
+      const values = await Chart.getValues(valuesNamespace, id, version, valuesName);
       if (values) {
         dispatch(selectChartVersionValues(valuesName, values));
       }

@@ -268,26 +268,27 @@ func getChartVersionSchema(w http.ResponseWriter, req *http.Request, params Para
 }
 
 // Returns names of all available values files.
-func listValuesFiles(namespace string, cid string, cv models.ChartVersion) []string{
+func listValuesFiles(namespace string, cid string, cv models.ChartVersion) []models.ValuesFileResponse{
 	fileID := fmt.Sprintf("%s-%s", cid, cv.Version)
 	files, err := manager.getChartFiles(namespace, fileID)
-	var valueFiles []string
+	var valueFiles []models.ValuesFileResponse
 
 	if err != nil {
 		return valueFiles
 	}
 
-	for _, valueFile := range files.ValueFiles {
-		valueFiles = append(valueFiles, valueFile.Name)
-	}
+	sort.SliceStable(files.ValueFiles, func (i int, j int) bool{
+		return files.ValueFiles[i].Name < files.ValueFiles[j].Name
+	})
 
+	for _, valueFile := range files.ValueFiles {
+		valueFiles = append(valueFiles, models.ValuesFileResponse{Name: valueFile.Name, Namespace: namespace})
+	}
 
 	// This comparison exists for compatibility purposes
 	if len(valueFiles) == 0 && files.Values != "" {
-		valueFiles = append(valueFiles, "values.yaml")
+		valueFiles = append(valueFiles, models.ValuesFileResponse{Name: "values.yaml", Namespace: namespace})
 	}
-
-	sort.Strings(valueFiles)
 
 	return valueFiles
 }
@@ -352,7 +353,7 @@ func chartVersionAttributes(namespace, cid string, cv models.ChartVersion) model
 
 	if len(existingValues) > 0 {
 		cv.ValuesFiles = existingValues
-		firstValue = existingValues[0]
+		firstValue = existingValues[0].Name
 	}
 
 	versionPath := fmt.Sprintf("%s/ns/%s/assets/%s/versions/%s/", pathPrefix, namespace, cid, cv.Version)

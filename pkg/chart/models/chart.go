@@ -64,6 +64,11 @@ type ChartIconString struct {
 	RawIcon string `json:"raw_icon" bson:"raw_icon"`
 }
 
+type ValuesFileResponse struct {
+	Name      string `json:"name" bson:"-"`
+	Namespace string `json:"namespace" bson:"-"`
+}
+
 // ChartVersion is a representation of a specific version of a chart
 type ChartVersion struct {
 	Version    string    `json:"version"`
@@ -74,11 +79,11 @@ type ChartVersion struct {
 	// The following three fields get set with the URL paths to the respective
 	// chart files (as opposed to the similar fields on ChartFiles which
 	// contain the actual content).
-	Readme      string   `json:"readme" bson:"-"`
-	Values      string   `json:"values" bson:"-"`
-	Schema      string   `json:"schema" bson:"-"`
-	ValuesFiles []string `json:"values_files" bson:"-"`
-	ValuesName   string   `json:"values_name" bson:"-"`
+	Readme      string               `json:"readme" bson:"-"`
+	Values      string               `json:"values" bson:"-"`
+	Schema      string               `json:"schema" bson:"-"`
+	ValuesFiles []ValuesFileResponse `json:"values_files" bson:"-"`
+	ValuesName  string               `json:"values_name" bson:"-"`
 }
 
 type ValueFile struct {
