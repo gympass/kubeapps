@@ -91,7 +91,7 @@ const chartVersion = {
     version: "1.0.0",
     app_version: "1.0",
     created: "1",
-    values_files: ["values.yaml"],
+    values_files: [{ name: "values.yaml", namespace: "repo-namespace" }],
     values_name: "values.yaml",
   },
   relationships: {

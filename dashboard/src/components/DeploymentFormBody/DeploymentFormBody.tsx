@@ -329,8 +329,8 @@ class DeploymentFormBody extends React.Component<
             required={this.props.setValuesFile !== undefined}
           >
             {valuesFiles.map(v => (
-              <option key={v} value={v}>
-                {v}
+              <option key={v.name} value={v.name}>
+                {v.name}
               </option>
             ))}
           </select>

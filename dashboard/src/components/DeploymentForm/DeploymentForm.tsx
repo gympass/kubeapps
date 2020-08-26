@@ -37,11 +37,7 @@ export interface IDeploymentFormProps {
   push: (location: string) => RouterAction;
   fetchChartVersions: (namespace: string, id: string) => Promise<IChartVersion[]>;
   getChartVersion: (namespace: string, id: string, chartVersion: string) => void;
-  getChartVersionValues: (
-    namespace: string,
-    chartVersion: IChartVersion,
-    valuesName: string,
-  ) => void;
+  getChartVersionValues: (chartVersion: IChartVersion, valuesName: string) => void;
   namespace: string;
 }
 
@@ -173,9 +169,9 @@ class DeploymentForm extends React.Component<IDeploymentFormProps, IDeploymentFo
   };
 
   public setValuesFile = (valuesFile: string) => {
-    const { namespace, selected } = this.props;
+    const { selected } = this.props;
     if (selected.version) {
-      this.props.getChartVersionValues(namespace, selected.version, valuesFile);
+      this.props.getChartVersionValues(selected.version, valuesFile);
     }
   };
 

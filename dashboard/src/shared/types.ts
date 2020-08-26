@@ -49,11 +49,16 @@ export interface IChartVersion {
   };
 }
 
+export interface IChartValuesFile {
+  name: string;
+  namespace: string;
+}
+
 export interface IChartVersionAttributes {
   version: string;
   app_version: string;
   created: string;
-  values_files: string[];
+  values_files: IChartValuesFile[];
   values_name: string;
 }
 
@@ -93,7 +98,7 @@ export interface IChartState {
     values?: string;
     schema?: any;
     valuesName?: string;
-    valuesFiles?: string[];
+    valuesFiles?: IChartValuesFile[];
   };
   deployed: {
     chartVersion?: IChartVersion;
