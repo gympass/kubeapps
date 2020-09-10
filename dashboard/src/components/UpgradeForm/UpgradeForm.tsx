@@ -133,6 +133,8 @@ class UpgradeForm extends React.Component<IUpgradeFormProps, IUpgradeFormState> 
               setValues={this.handleValuesChange}
               appValues={this.state.appValues}
               setValuesModified={this.setValuesModified}
+              setValuesUnmodified={this.setValuesUnmodified}
+              hasValuesChanged={this.state.valuesModified}
             />
           </div>
         </div>
@@ -142,6 +144,10 @@ class UpgradeForm extends React.Component<IUpgradeFormProps, IUpgradeFormState> 
 
   public setValuesModified = () => {
     this.setState({ valuesModified: true });
+  };
+
+  public setValuesUnmodified = () => {
+    this.setState({ valuesModified: false });
   };
 
   public handleValuesChange = (value: string) => {

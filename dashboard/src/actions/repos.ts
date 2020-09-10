@@ -30,6 +30,10 @@ export const requestRepos = createAction("REQUEST_REPOS", resolve => {
 export const receiveRepos = createAction("RECEIVE_REPOS", resolve => {
   return (repos: IAppRepository[]) => resolve(repos);
 });
+export const concatRepos = createAction("RECEIVE_REPOS", resolve => {
+  return (repos: IAppRepository[]) => resolve(repos);
+});
+
 export const receiveReposSecrets = createAction("RECEIVE_REPOS_SECRETS", resolve => {
   return (secrets: ISecret[]) => resolve(secrets);
 });
@@ -114,8 +118,9 @@ export const deleteRepo = (
   return async (dispatch, getState) => {
     const {
       clusters: {
+        currentCluster,
         clusters: {
-          default: { currentNamespace },
+          [currentCluster]: { currentNamespace },
         },
       },
     } = getState();
@@ -157,10 +162,13 @@ export const fetchRepoSecrets = (
   namespace: string,
 ): ThunkAction<Promise<void>, IStoreState, null, AppReposAction> => {
   return async (dispatch, getState) => {
+    const {
+      clusters: { currentCluster },
+    } = getState();
     // TODO(andresmgot): Create an endpoint for returning credentials related to an AppRepository
     // to avoid listing secrets
     // https://github.com/kubeapps/kubeapps/issues/1686
-    const secrets = await Secret.list("default", namespace);
+    const secrets = await Secret.list(currentCluster, namespace);
     const repoSecrets = secrets.items?.filter(s =>
       s.metadata.ownerReferences?.some(ownerRef => ownerRef.kind === "AppRepository"),
     );
@@ -172,8 +180,11 @@ export const fetchRepoSecret = (
   namespace: string,
   name: string,
 ): ThunkAction<Promise<void>, IStoreState, null, AppReposAction> => {
-  return async dispatch => {
-    const secret = await Secret.get("default", name, namespace);
+  return async (dispatch, getState) => {
+    const {
+      clusters: { currentCluster },
+    } = getState();
+    const secret = await Secret.get(currentCluster, name, namespace);
     dispatch(receiveReposSecret(secret));
   };
 };
@@ -181,13 +192,26 @@ export const fetchRepoSecret = (
 // fetchRepos fetches the AppRepositories in a specified namespace.
 export const fetchRepos = (
   namespace: string,
+  ...otherNamespaces: string[]
 ): ThunkAction<Promise<void>, IStoreState, null, AppReposAction> => {
   return async (dispatch, getState) => {
     try {
       dispatch(requestRepos(namespace));
       const repos = await AppRepository.list(namespace);
-      dispatch(receiveRepos(repos.items));
       dispatch(fetchRepoSecrets(namespace));
+      if (!otherNamespaces || !otherNamespaces.length) {
+        dispatch(receiveRepos(repos.items));
+      } else {
+        let totalRepos = repos.items;
+        await Promise.all(
+          otherNamespaces.map(async otherNamespace => {
+            dispatch(requestRepos(otherNamespace));
+            const otherRepos = await AppRepository.list(otherNamespace);
+            totalRepos = totalRepos.concat(otherRepos.items);
+          }),
+        );
+        dispatch(receiveRepos(totalRepos));
+      }
     } catch (e) {
       dispatch(errorRepos(e, "fetch"));
     }
@@ -205,7 +229,7 @@ function parsePodTemplate(syncJobPodTemplate: string) {
 function getTargetNS(getState: () => IStoreState, namespace: string) {
   let target = namespace;
   const {
-    config: { namespace: kubeappsNamespace },
+    config: { kubeappsNamespace },
   } = getState();
   if (namespace === definedNamespaces.all) {
     target = kubeappsNamespace;
@@ -341,13 +365,16 @@ export function checkChart(
 export function fetchImagePullSecrets(
   namespace: string,
 ): ThunkAction<Promise<void>, IStoreState, null, AppReposAction> {
-  return async dispatch => {
+  return async (dispatch, getState) => {
+    const {
+      clusters: { currentCluster },
+    } = getState();
     try {
       dispatch(requestImagePullSecrets(namespace));
       // TODO(andresmgot): Create an endpoint for returning just the list of secret names
       // to avoid listing all the secrets with protected information
       // https://github.com/kubeapps/kubeapps/issues/1686
-      const secrets = await Secret.list("default", namespace);
+      const secrets = await Secret.list(currentCluster, namespace);
       const imgPullSecrets = secrets.items?.filter(
         s => s.type === "kubernetes.io/dockerconfigjson",
       );
@@ -366,10 +393,13 @@ export function createDockerRegistrySecret(
   server: string,
   namespace: string,
 ): ThunkAction<Promise<boolean>, IStoreState, null, AppReposAction> {
-  return async dispatch => {
+  return async (dispatch, getState) => {
+    const {
+      clusters: { currentCluster },
+    } = getState();
     try {
       const secret = await Secret.createPullSecret(
-        "default",
+        currentCluster,
         name,
         user,
         password,

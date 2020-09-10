@@ -17,12 +17,13 @@ interface IRouteProps {
 }
 
 function mapStateToProps(
-  { operators, clusters: { currentCluster, clusters } }: IStoreState,
+  { operators, clusters: { currentCluster, clusters }, config }: IStoreState,
   { match: { params } }: IRouteProps,
 ) {
   return {
     cluster: currentCluster,
     namespace: clusters[currentCluster].currentNamespace,
+    kubeappsCluster: config.kubeappsCluster,
     isFetching: operators.isFetching,
     csv: operators.csv,
     errors: {
@@ -31,15 +32,21 @@ function mapStateToProps(
     },
     csvName: params.csv,
     crdName: params.crd,
+    UI: config.featureFlags.ui,
   };
 }
 
 function mapDispatchToProps(dispatch: ThunkDispatch<IStoreState, null, Action>) {
   return {
-    getCSV: (namespace: string, name: string) =>
-      dispatch(actions.operators.getCSV(namespace, name)),
-    createResource: (namespace: string, apiVersion: string, resource: string, body: object) =>
-      dispatch(actions.operators.createResource(namespace, apiVersion, resource, body)),
+    getCSV: (cluster: string, namespace: string, name: string) =>
+      dispatch(actions.operators.getCSV(cluster, namespace, name)),
+    createResource: (
+      cluster: string,
+      namespace: string,
+      apiVersion: string,
+      resource: string,
+      body: object,
+    ) => dispatch(actions.operators.createResource(cluster, namespace, apiVersion, resource, body)),
     push: (location: string) => dispatch(push(location)),
   };
 }

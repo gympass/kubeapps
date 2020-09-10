@@ -309,24 +309,17 @@ describe("clusterReducer", () => {
 
   context("when RECEIVE_CONFIG", () => {
     const config = {
-      namespace: "kubeapps",
+      kubeappsCluster: "kubeappsCluster",
+      kubeappsNamespace: "kubeapps",
       appVersion: "dev",
       authProxyEnabled: false,
       oauthLoginURI: "",
       oauthLogoutURI: "",
       featureFlags: {
         operators: false,
+        ui: "hex",
       },
-      clusters: [
-        {
-          name: "additionalCluster1",
-          apiServiceURL: "https://not-used-by-dashboard.example.com/",
-        },
-        {
-          name: "additionalCluster2",
-          apiServiceURL: "https://not-used-by-dashboard.example.com/",
-        },
-      ],
+      clusters: ["additionalCluster1", "additionalCluster2"],
     } as IConfig;
     it("adds the additional clusters to the clusters state", () => {
       expect(
@@ -336,6 +329,7 @@ describe("clusterReducer", () => {
         }),
       ).toEqual({
         ...initialTestState,
+        currentCluster: "kubeappsCluster",
         clusters: {
           ...initialTestState.clusters,
           additionalCluster1: {
@@ -362,7 +356,10 @@ describe("clusterReducer", () => {
           type: getType(actions.config.receiveConfig),
           payload: badConfig,
         }),
-      ).toEqual(initialTestState);
+      ).toEqual({
+        ...initialTestState,
+        currentCluster: "kubeappsCluster",
+      });
     });
   });
 });

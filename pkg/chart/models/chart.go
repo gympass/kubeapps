@@ -54,6 +54,7 @@ type Chart struct {
 	Icon            string             `json:"icon"`
 	RawIcon         []byte             `json:"raw_icon" bson:"raw_icon"`
 	IconContentType string             `json:"icon_content_type" bson:"icon_content_type,omitempty"`
+	Category        string             `json:"category"`
 	ChartVersions   []ChartVersion     `json:"chartVersions"`
 }
 
@@ -62,6 +63,11 @@ type Chart struct {
 type ChartIconString struct {
 	Chart
 	RawIcon string `json:"raw_icon" bson:"raw_icon"`
+}
+
+type ValuesFileResponse struct {
+	Name      string `json:"name" bson:"-"`
+	Namespace string `json:"namespace" bson:"-"`
 }
 
 // ChartVersion is a representation of a specific version of a chart
@@ -74,19 +80,28 @@ type ChartVersion struct {
 	// The following three fields get set with the URL paths to the respective
 	// chart files (as opposed to the similar fields on ChartFiles which
 	// contain the actual content).
-	Readme string `json:"readme" bson:"-"`
-	Values string `json:"values" bson:"-"`
-	Schema string `json:"schema" bson:"-"`
+	Readme      string               `json:"readme" bson:"-"`
+	Values      string               `json:"values" bson:"-"`
+	Schema      string               `json:"schema" bson:"-"`
+	ValuesFiles []ValuesFileResponse `json:"values_files" bson:"-"`
+	ValuesName  string               `json:"values_name" bson:"-"`
+}
+
+type ValueFile struct {
+	Name    string
+	Content string
 }
 
 // ChartFiles holds the README and values for a given chart version
 type ChartFiles struct {
 	ID     string `bson:"file_id"`
 	Readme string
-	Values string
-	Schema string
-	Repo   *Repo
-	Digest string
+	// This attribute exists for compatibility purposes. All value files will be under ValueFiles attribute
+	Values     string
+	Schema     string
+	Repo       *Repo
+	Digest     string
+	ValueFiles []ValueFile
 }
 
 // Allow to convert ChartFiles to a sql JSON

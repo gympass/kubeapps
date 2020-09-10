@@ -30,11 +30,14 @@ export interface IDeploymentFormBodyProps {
   releaseVersion?: string;
   selected: IChartState["selected"];
   appValues: string;
+  hasValuesChanged: boolean;
   push: (location: string) => RouterAction;
   goBack?: () => RouterAction;
   getChartVersion: (namespace: string, id: string, chartVersion: string) => void;
   setValues: (values: string) => void;
   setValuesModified: () => void;
+  setValuesUnmodified: () => void;
+  setValuesFile?: (valuesName: string) => void;
 }
 
 export interface IDeploymentFormBodyState {
@@ -95,6 +98,7 @@ class DeploymentFormBody extends React.Component<
   public render() {
     const { chartsIsFetching, selected, chartID, chartVersion, goBack } = this.props;
     const { version, versions } = selected;
+
     if (selected.error) {
       return (
         <ErrorSelector error={selected.error} resource={`Chart "${chartID}" (${chartVersion})`} />
@@ -131,6 +135,7 @@ class DeploymentFormBody extends React.Component<
             ))}
           </select>
         </div>
+        {this.renderChartValuesFiles()}
         {this.renderTabs()}
         <div className="margin-t-big">
           <button className="button button-primary" type="submit">
@@ -162,6 +167,12 @@ class DeploymentFormBody extends React.Component<
       this.props.push(
         url.app.apps.new(cluster, namespace, selected.version!, e.currentTarget.value),
       );
+    }
+  };
+
+  private handleValuesFileChange = (e: React.FormEvent<HTMLSelectElement>) => {
+    if (this.props.setValuesFile) {
+      this.props.setValuesFile(e.currentTarget.value);
     }
   };
 
@@ -271,6 +282,7 @@ class DeploymentFormBody extends React.Component<
         ),
       });
     }
+    this.props.setValuesUnmodified();
     this.setState({ restoreDefaultValuesModalIsOpen: false });
   };
 
@@ -299,6 +311,34 @@ class DeploymentFormBody extends React.Component<
         emptyDiffText={emptyDiffText}
       />
     );
+  };
+
+  private renderChartValuesFiles = () => {
+    if (this.props.setValuesFile !== undefined && !this.props.hasValuesChanged) {
+      const { selected } = this.props;
+      const { version } = selected;
+      const valuesFiles = version?.attributes?.values_files || [];
+
+      return (
+        <div>
+          <label htmlFor="chartValues">Values files</label>
+          <select
+            id="chartValues"
+            onChange={this.handleValuesFileChange}
+            value={selected.valuesName}
+            required={this.props.setValuesFile !== undefined}
+          >
+            {valuesFiles.map(v => (
+              <option key={v.name} value={v.name}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    } else {
+      return <div />;
+    }
   };
 }
 

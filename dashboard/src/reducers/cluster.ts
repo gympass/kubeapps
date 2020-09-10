@@ -152,13 +152,14 @@ const clusterReducer = (
       };
       const config = action.payload as IConfig;
       config.clusters?.forEach(cluster => {
-        clusters[cluster.name] = {
+        clusters[cluster] = {
           currentNamespace: "default",
           namespaces: [],
         };
       });
       return {
         ...state,
+        currentCluster: action.payload.kubeappsCluster,
         clusters,
       };
     default:

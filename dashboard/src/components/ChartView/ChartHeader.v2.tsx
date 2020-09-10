@@ -51,8 +51,8 @@ export default function ChartHeader({
           </Column>
           <Column span={5}>
             <div className="control-buttons">
-              <div className="chart-version-selector">
-                <label className="chart-version-selector-label" htmlFor="chart-versions">
+              <div className="header-version">
+                <label className="header-version-label" htmlFor="chart-versions">
                   Chart Version{" "}
                   <Tooltip
                     label="chart-versions-tooltip"
@@ -76,7 +76,10 @@ export default function ChartHeader({
                     name="chart-versions"
                     className="clr-page-size-select"
                     onChange={onSelect}
-                    value={currentVersion}
+                    defaultValue={
+                      currentVersion ||
+                      (versions.length ? versions[0].attributes.version : undefined)
+                    }
                   >
                     {versions.map(v => {
                       return (

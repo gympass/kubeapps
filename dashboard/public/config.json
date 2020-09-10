@@ -1,5 +1,6 @@
 {
-  "namespace": "default",
+  "kubeappsCluster": "default",
+  "kubeappsNamespace": "kubeapps",
   "appVersion": "DEVEL",
   "authProxyEnabled": false,
   "oauthLoginURI": "/oauth2/start",

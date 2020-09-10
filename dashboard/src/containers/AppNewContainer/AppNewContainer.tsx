@@ -27,11 +27,11 @@ function mapStateToProps(
 ) {
   return {
     chartID: `${params.repo}/${params.id}`,
-    chartNamespace: params.global === "global" ? config.namespace : params.namespace,
+    chartNamespace: params.global === "global" ? config.kubeappsNamespace : params.namespace,
     cluster: params.cluster,
     chartVersion: params.version,
     error: apps.error,
-    kubeappsNamespace: config.namespace,
+    kubeappsNamespace: config.kubeappsNamespace,
     namespace: params.namespace,
     selected: charts.selected,
     chartsIsFetching: charts.isFetching,
@@ -66,6 +66,8 @@ function mapDispatchToProps(dispatch: ThunkDispatch<IStoreState, null, Action>) 
     getChartVersion: (namespace: string, id: string, version: string) =>
       dispatch(actions.charts.getChartVersion(namespace, id, version)),
     push: (location: string) => dispatch(push(location)),
+    getChartVersionValues: (chartVersion: IChartVersion, valuesName: string) =>
+      dispatch(actions.charts.getChartVersionValues(chartVersion, valuesName)),
   };
 }
 

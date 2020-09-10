@@ -27,6 +27,8 @@ const chartsSelectedReducer = (
         version: action.payload.chartVersion,
         values: action.payload.values,
         schema: action.payload.schema,
+        valuesFiles: action.payload.chartVersion.attributes.values_files,
+        valuesName: action.payload.chartVersion.attributes.values_name,
       };
     case getType(actions.charts.receiveChartVersions):
       return {
@@ -42,6 +44,12 @@ const chartsSelectedReducer = (
       return { ...state, readmeError: action.payload };
     case getType(actions.charts.resetChartVersion):
       return initialState.selected;
+    case getType(actions.charts.selectChartVersionValues):
+      return {
+        ...state,
+        valuesName: action.payload.valuesName,
+        values: action.payload.values,
+      };
     default:
   }
   return state;
@@ -63,6 +71,12 @@ const chartsReducer = (
         selected: chartsSelectedReducer(state.selected, action),
       };
     case getType(actions.charts.selectChartVersion):
+      return {
+        ...state,
+        isFetching: false,
+        selected: chartsSelectedReducer(state.selected, action),
+      };
+    case getType(actions.charts.selectChartVersionValues):
       return {
         ...state,
         isFetching: false,

@@ -15,14 +15,17 @@ export interface IOperatorInstanceUpgradeFormProps {
   isFetching: boolean;
   cluster: string;
   namespace: string;
+  kubeappsCluster: string;
   resourceName: string;
   getResource: (
+    cluster: string,
     namespace: string,
     csvName: string,
     crdName: string,
     resourceName: string,
   ) => Promise<void>;
   updateResource: (
+    cluster: string,
     namespace: string,
     apiVersion: string,
     resource: string,
@@ -51,8 +54,8 @@ class DeploymentFormBody extends React.Component<
   };
 
   public componentDidMount() {
-    const { csvName, crdName, resourceName, namespace, getResource } = this.props;
-    getResource(namespace, csvName, crdName, resourceName);
+    const { cluster, csvName, crdName, resourceName, namespace, getResource } = this.props;
+    getResource(cluster, namespace, csvName, crdName, resourceName);
   }
 
   public componentDidUpdate(prevProps: IOperatorInstanceUpgradeFormProps) {
@@ -65,11 +68,20 @@ class DeploymentFormBody extends React.Component<
   }
 
   public render() {
-    const { isFetching, errors, resourceName, cluster, namespace, resource, csvName } = this.props;
+    const {
+      isFetching,
+      errors,
+      resourceName,
+      cluster,
+      namespace,
+      kubeappsCluster,
+      resource,
+      csvName,
+    } = this.props;
     const { defaultValues } = this.state;
 
-    if (cluster !== "default") {
-      return <OperatorNotSupported namespace={namespace} />;
+    if (cluster !== kubeappsCluster) {
+      return <OperatorNotSupported kubeappsCluster={kubeappsCluster} namespace={namespace} />;
     }
 
     if (!errors.fetch && !isFetching && !resource) {
@@ -98,6 +110,7 @@ class DeploymentFormBody extends React.Component<
     const { updateResource, crdName, resourceName, cluster, namespace, push, csvName } = this.props;
 
     const created = await updateResource(
+      cluster,
       namespace,
       resource.apiVersion,
       crdName.split(".")[0],

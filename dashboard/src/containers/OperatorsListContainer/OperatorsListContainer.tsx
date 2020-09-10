@@ -9,27 +9,31 @@ import OperatorList from "../../components/OperatorList";
 import { IStoreState } from "../../shared/types";
 
 function mapStateToProps(
-  { operators, clusters: { currentCluster, clusters } }: IStoreState,
+  { operators, clusters: { currentCluster, clusters }, config }: IStoreState,
   { location }: RouteComponentProps<{}>,
 ) {
   return {
     cluster: currentCluster,
     namespace: clusters[currentCluster].currentNamespace,
+    kubeappsCluster: config.kubeappsCluster,
     isFetching: operators.isFetching,
     isOLMInstalled: operators.isOLMInstalled,
     operators: operators.operators,
     error: operators.errors.operator.fetch,
     csvs: operators.csvs,
     filter: qs.parse(location.search, { ignoreQueryPrefix: true }).q || "",
+    UI: config.featureFlags.ui,
   };
 }
 
 function mapDispatchToProps(dispatch: ThunkDispatch<IStoreState, null, Action>) {
   return {
-    checkOLMInstalled: (namespace: string) =>
-      dispatch(actions.operators.checkOLMInstalled(namespace)),
-    getOperators: (namespace: string) => dispatch(actions.operators.getOperators(namespace)),
-    getCSVs: (namespace: string) => dispatch(actions.operators.getCSVs(namespace)),
+    checkOLMInstalled: (cluster: string, namespace: string) =>
+      dispatch(actions.operators.checkOLMInstalled(cluster, namespace)),
+    getOperators: (cluster: string, namespace: string) =>
+      dispatch(actions.operators.getOperators(cluster, namespace)),
+    getCSVs: (cluster: string, namespace: string) =>
+      dispatch(actions.operators.getCSVs(cluster, namespace)),
     pushSearchFilter: (filter: string) => dispatch(actions.shared.pushSearchFilter(filter)),
   };
 }

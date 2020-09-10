@@ -16,8 +16,10 @@ export interface IOperatorInstanceFormProps {
   isFetching: boolean;
   cluster: string;
   namespace: string;
-  getCSV: (namespace: string, csvName: string) => void;
+  kubeappsCluster: string;
+  getCSV: (cluster: string, namespace: string, csvName: string) => void;
   createResource: (
+    cluster: string,
     namespace: string,
     apiVersion: string,
     resource: string,
@@ -45,8 +47,8 @@ class DeploymentFormBody extends React.Component<
   };
 
   public componentDidMount() {
-    const { getCSV, csvName, namespace } = this.props;
-    getCSV(namespace, csvName);
+    const { cluster, getCSV, csvName, namespace } = this.props;
+    getCSV(cluster, namespace, csvName);
   }
 
   public componentDidUpdate(prevProps: IOperatorInstanceFormProps) {
@@ -75,10 +77,18 @@ class DeploymentFormBody extends React.Component<
   }
 
   public render() {
-    const { isFetching, errors, csvName, crdName, cluster, namespace } = this.props;
+    const {
+      isFetching,
+      errors,
+      csvName,
+      crdName,
+      cluster,
+      namespace,
+      kubeappsCluster,
+    } = this.props;
     const { crd, defaultValues } = this.state;
-    if (cluster !== "default") {
-      return <OperatorNotSupported namespace={namespace} />;
+    if (cluster !== kubeappsCluster) {
+      return <OperatorNotSupported kubeappsCluster={kubeappsCluster} namespace={namespace} />;
     }
     if (!errors.fetch && !isFetching && !crd) {
       return (
@@ -120,7 +130,13 @@ class DeploymentFormBody extends React.Component<
       throw new Error(`Missing CRD (${JSON.stringify(crd)}) or CSV (${JSON.stringify(csv)})`);
     }
     const resourceType = crd.name.split(".")[0];
-    const created = await createResource(namespace, resource.apiVersion, resourceType, resource);
+    const created = await createResource(
+      cluster,
+      namespace,
+      resource.apiVersion,
+      resourceType,
+      resource,
+    );
     if (created) {
       push(
         url.app.operatorInstances.view(

@@ -37,6 +37,7 @@ export interface IDeploymentFormProps {
   push: (location: string) => RouterAction;
   fetchChartVersions: (namespace: string, id: string) => Promise<IChartVersion[]>;
   getChartVersion: (namespace: string, id: string, chartVersion: string) => void;
+  getChartVersionValues: (chartVersion: IChartVersion, valuesName: string) => void;
   namespace: string;
 }
 

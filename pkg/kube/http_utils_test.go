@@ -19,9 +19,13 @@ package kube
 import (
 	"crypto/x509"
 	"net/http"
+	"net/url"
+	"os"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	v1alpha1 "github.com/kubeapps/kubeapps/cmd/apprepository-controller/pkg/apis/apprepository/v1alpha1"
+	"golang.org/x/net/http/httpproxy"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -59,6 +63,8 @@ func TestInitNetClient(t *testing.T) {
 		authHeaderSecretData = "really-secret-stuff"
 		customCASecretName   = "custom-ca-secret-name"
 		appRepoName          = "custom-repo"
+		requestURL           = "https://request.example.com/foo/bar"
+		proxyURL             = "https://proxy.example.com"
 	)
 
 	testCases := []struct {
@@ -68,6 +74,7 @@ func TestInitNetClient(t *testing.T) {
 		errorExpected    bool
 		numCertsExpected int
 		expectedHeaders  http.Header
+		expectProxied    bool
 	}{
 		{
 			name:             "default cert pool without auth",
@@ -79,9 +86,8 @@ func TestInitNetClient(t *testing.T) {
 				Auth: v1alpha1.AppRepositoryAuth{
 					CustomCA: &v1alpha1.AppRepositoryCustomCA{
 						SecretKeyRef: corev1.SecretKeySelector{
-							corev1.LocalObjectReference{customCASecretName},
-							"custom-secret-key",
-							nil,
+							LocalObjectReference: corev1.LocalObjectReference{Name: customCASecretName},
+							Key:                  "custom-secret-key",
 						},
 					},
 				},
@@ -95,9 +101,8 @@ func TestInitNetClient(t *testing.T) {
 				Auth: v1alpha1.AppRepositoryAuth{
 					CustomCA: &v1alpha1.AppRepositoryCustomCA{
 						SecretKeyRef: corev1.SecretKeySelector{
-							corev1.LocalObjectReference{customCASecretName},
-							"some-other-secret-key",
-							nil,
+							LocalObjectReference: corev1.LocalObjectReference{Name: customCASecretName},
+							Key:                  "some-other-secret-key",
 						},
 					},
 				},
@@ -111,9 +116,8 @@ func TestInitNetClient(t *testing.T) {
 				Auth: v1alpha1.AppRepositoryAuth{
 					CustomCA: &v1alpha1.AppRepositoryCustomCA{
 						SecretKeyRef: corev1.SecretKeySelector{
-							corev1.LocalObjectReference{customCASecretName},
-							"custom-secret-key",
-							nil,
+							LocalObjectReference: corev1.LocalObjectReference{Name: customCASecretName},
+							Key:                  "custom-secret-key",
 						},
 					},
 				},
@@ -127,15 +131,35 @@ func TestInitNetClient(t *testing.T) {
 				Auth: v1alpha1.AppRepositoryAuth{
 					Header: &v1alpha1.AppRepositoryAuthHeader{
 						SecretKeyRef: corev1.SecretKeySelector{
-							corev1.LocalObjectReference{authHeaderSecretName},
-							"custom-secret-key",
-							nil,
+							LocalObjectReference: corev1.LocalObjectReference{Name: authHeaderSecretName},
+							Key:                  "custom-secret-key",
 						},
 					},
 				},
 			},
 			numCertsExpected: len(systemCertPool.Subjects()),
 			expectedHeaders:  http.Header{"Authorization": []string{authHeaderSecretData}},
+		},
+		{
+			name: "http proxy added when passed an AppRepository CRD with an http_proxy env var",
+			appRepoSpec: v1alpha1.AppRepositorySpec{
+				SyncJobPodTemplate: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Env: []corev1.EnvVar{
+									{
+										Name:  "http_proxy",
+										Value: proxyURL,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectProxied:    true,
+			numCertsExpected: len(systemCertPool.Subjects()),
 		},
 	}
 
@@ -205,14 +229,155 @@ func TestInitNetClient(t *testing.T) {
 			}
 
 			// If the Auth header was set, secrets should be returned
-			if tc.appRepoSpec.Auth.Header != nil {
-				_, ok := clientWithDefaultHeaders.defaultHeaders["Authorization"]
+			_, ok = clientWithDefaultHeaders.defaultHeaders["Authorization"]
+			if tc.expectedHeaders != nil {
 				if !ok {
 					t.Fatalf("expected Authorization header but found none")
 				}
 				if got, want := clientWithDefaultHeaders.defaultHeaders.Get("Authorization"), authHeaderSecretData; got != want {
 					t.Errorf("got: %q, want: %q", got, want)
 				}
+			} else {
+				if ok {
+					t.Errorf("Authorization header present when non included in app repo")
+				}
+			}
+
+			// Verify that a URL is proxied or not, depending on the app repo configuration.
+			u, err := url.Parse(requestURL)
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+			requestURL, err := transport.Proxy(&http.Request{URL: u})
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+			if tc.expectProxied {
+				if got, want := requestURL.String(), proxyURL; got != want {
+					t.Errorf("got: %q, want: %q", got, want)
+				}
+			} else {
+				// The proxy function returns nil (with a nil error) if the
+				// request should not be proxied
+				if got := requestURL; got != nil {
+					t.Errorf("got: %q, want: nil", got)
+				}
+			}
+		})
+	}
+}
+
+func TestGetProxyConfig(t *testing.T) {
+	proxyVars := []string{"http_proxy", "https_proxy", "no_proxy", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"}
+	testCases := []struct {
+		name             string
+		appRepoEnvVars   []corev1.EnvVar
+		containerEnvVars map[string]string
+		expectedConfig   *httpproxy.Config
+	}{
+		{
+			name: "configures when http_proxy specified",
+			appRepoEnvVars: []corev1.EnvVar{
+				{
+					Name:  "http_proxy",
+					Value: "http://proxied.example.com:8888",
+				},
+			},
+			expectedConfig: &httpproxy.Config{
+				HTTPProxy: "http://proxied.example.com:8888",
+			},
+		},
+		{
+			name: "configures when https_proxy specified",
+			appRepoEnvVars: []corev1.EnvVar{
+				{
+					Name:  "https_proxy",
+					Value: "https://proxied.example.com:8888",
+				},
+			},
+			expectedConfig: &httpproxy.Config{
+				HTTPSProxy: "https://proxied.example.com:8888",
+			},
+		},
+		{
+			name: "configures all three when specified",
+			appRepoEnvVars: []corev1.EnvVar{
+				{
+					Name:  "http_proxy",
+					Value: "http://proxied.example.com:8888",
+				},
+				{
+					Name:  "https_proxy",
+					Value: "https://proxied.example.com:8888",
+				},
+				{
+					Name:  "no_proxy",
+					Value: "http://some.example.com https://other.example.com",
+				},
+			},
+			expectedConfig: &httpproxy.Config{
+				HTTPSProxy: "https://proxied.example.com:8888",
+				HTTPProxy:  "http://proxied.example.com:8888",
+				NoProxy:    "http://some.example.com https://other.example.com",
+			},
+		},
+		{
+			name:           "returns a nil config when none specified in app repo or container",
+			expectedConfig: &httpproxy.Config{},
+		},
+		{
+			name: "defaults to the container environment proxy vars when set",
+			containerEnvVars: map[string]string{
+				"http_proxy": "http://container.example.com:9999",
+			},
+			expectedConfig: &httpproxy.Config{
+				HTTPProxy: "http://container.example.com:9999",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			// Set the env for the test ensuring to restore after.
+			originalValues := map[string]string{}
+			for _, key := range proxyVars {
+				originalVal, ok := os.LookupEnv(key)
+				if ok {
+					originalValues[key] = originalVal
+					os.Unsetenv(key)
+				}
+
+				value, ok := tc.containerEnvVars[key]
+				if ok {
+					os.Setenv(key, value)
+				}
+			}
+			defer func() {
+				for key, val := range originalValues {
+					os.Setenv(key, val)
+				}
+			}()
+
+			appRepo := &v1alpha1.AppRepository{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: metav1.NamespaceSystem,
+				},
+				Spec: v1alpha1.AppRepositorySpec{
+					SyncJobPodTemplate: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Env: tc.appRepoEnvVars,
+								},
+							},
+						},
+					},
+				},
+			}
+			if got, want := getProxyConfig(appRepo), tc.expectedConfig; !cmp.Equal(want, got) {
+				t.Errorf("mismatch (-want +got):\n%s", cmp.Diff(want, got))
 			}
 		})
 	}

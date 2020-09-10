@@ -21,10 +21,12 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
 	"github.com/kubeapps/kubeapps/cmd/apprepository-controller/pkg/apis/apprepository/v1alpha1"
+	"golang.org/x/net/http/httpproxy"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -100,12 +102,14 @@ func InitNetClient(appRepo *v1alpha1.AppRepository, caCertSecret, authSecret *co
 		defaultHeaders.Set("Authorization", string(auth))
 	}
 
-	// Return Transport for testing purposes
+	proxyConfig := getProxyConfig(appRepo)
+	proxyFunc := func(r *http.Request) (*url.URL, error) { return proxyConfig.ProxyFunc()(r.URL) }
+
 	return &clientWithDefaultHeaders{
 		client: &http.Client{
 			Timeout: time.Second * defaultTimeoutSeconds,
 			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
+				Proxy: proxyFunc,
 				TLSClientConfig: &tls.Config{
 					RootCAs: caCertPool,
 				},
@@ -113,4 +117,31 @@ func InitNetClient(appRepo *v1alpha1.AppRepository, caCertSecret, authSecret *co
 		},
 		defaultHeaders: defaultHeaders,
 	}, nil
+}
+
+func getProxyConfig(appRepo *v1alpha1.AppRepository) *httpproxy.Config {
+	template := appRepo.Spec.SyncJobPodTemplate
+	proxyConfig := httpproxy.Config{}
+	defaultToEnv := true
+	if len(template.Spec.Containers) > 0 {
+		for _, e := range template.Spec.Containers[0].Env {
+			switch e.Name {
+			case "http_proxy":
+				proxyConfig.HTTPProxy = e.Value
+				defaultToEnv = false
+			case "https_proxy":
+				proxyConfig.HTTPSProxy = e.Value
+				defaultToEnv = false
+			case "no_proxy":
+				proxyConfig.NoProxy = e.Value
+				defaultToEnv = false
+			}
+		}
+	}
+
+	if defaultToEnv {
+		return httpproxy.FromEnvironment()
+	}
+
+	return &proxyConfig
 }

@@ -1,8 +1,8 @@
 import { mount } from "enzyme";
 import * as React from "react";
-import ErrorBoundary from ".";
 import UnexpectedErrorPage from "../../components/ErrorAlert/UnexpectedErrorAlert";
 import { UnexpectedErrorAlert } from "../ErrorAlert";
+import ErrorBoundary from "./ErrorBoundary";
 
 // tslint:disable:no-console
 const consoleOrig = console.error;

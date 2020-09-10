@@ -37,6 +37,7 @@ export interface IDeploymentFormProps {
   push: (location: string) => RouterAction;
   fetchChartVersions: (namespace: string, id: string) => Promise<IChartVersion[]>;
   getChartVersion: (namespace: string, id: string, chartVersion: string) => void;
+  getChartVersionValues: (chartVersion: IChartVersion, valuesName: string) => void;
   namespace: string;
 }
 
@@ -65,7 +66,11 @@ class DeploymentForm extends React.Component<IDeploymentFormProps, IDeploymentFo
   }
 
   public componentDidUpdate(prevProps: IDeploymentFormProps) {
-    if (prevProps.selected.version !== this.props.selected.version && !this.state.valuesModified) {
+    if (
+      (prevProps.selected.version !== this.props.selected.version ||
+        prevProps.selected.valuesName !== this.props.selected.valuesName) &&
+      !this.state.valuesModified
+    ) {
       this.setState({ appValues: this.props.selected.values || "" });
     }
   }
@@ -149,6 +154,9 @@ class DeploymentForm extends React.Component<IDeploymentFormProps, IDeploymentFo
               setValues={this.handleValuesChange}
               appValues={this.state.appValues}
               setValuesModified={this.setValuesModified}
+              setValuesUnmodified={this.setValuesUnmodified}
+              setValuesFile={this.setValuesFile}
+              hasValuesChanged={this.state.valuesModified}
             />
           </div>
         </div>
@@ -160,8 +168,19 @@ class DeploymentForm extends React.Component<IDeploymentFormProps, IDeploymentFo
     this.setState({ appValues: value });
   };
 
+  public setValuesFile = (valuesFile: string) => {
+    const { selected } = this.props;
+    if (selected.version) {
+      this.props.getChartVersionValues(selected.version, valuesFile);
+    }
+  };
+
   public setValuesModified = () => {
     this.setState({ valuesModified: true });
+  };
+
+  public setValuesUnmodified = () => {
+    this.setState({ valuesModified: false });
   };
 
   public handleDeploy = async (e: React.FormEvent<HTMLFormElement>) => {

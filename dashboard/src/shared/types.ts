@@ -49,10 +49,17 @@ export interface IChartVersion {
   };
 }
 
+export interface IChartValuesFile {
+  name: string;
+  namespace: string;
+}
+
 export interface IChartVersionAttributes {
   version: string;
   app_version: string;
   created: string;
+  values_files: IChartValuesFile[];
+  values_name: string;
 }
 
 export interface IChart {
@@ -77,6 +84,7 @@ export interface IChartAttributes {
   }>;
   repo: IRepo;
   sources: string[];
+  category: string;
 }
 
 export interface IChartState {
@@ -89,6 +97,8 @@ export interface IChartState {
     readmeError?: string;
     values?: string;
     schema?: any;
+    valuesName?: string;
+    valuesFiles?: IChartValuesFile[];
   };
   deployed: {
     chartVersion?: IChartVersion;
@@ -412,7 +422,7 @@ export interface IAppRepository
     {
       type: string;
       url: string;
-      auth: {
+      auth?: {
         header?: {
           secretKeyRef: {
             name: string;

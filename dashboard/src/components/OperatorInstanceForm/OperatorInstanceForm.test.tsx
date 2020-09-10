@@ -1,10 +1,9 @@
 import OperatorNotSupported from "components/OperatorList/OperatorsNotSupported";
 import { mount, shallow } from "enzyme";
 import * as React from "react";
-import OperatorInstanceForm from ".";
 import { IClusterServiceVersion } from "../../shared/types";
 import NotFoundErrorPage from "../ErrorAlert/NotFoundErrorAlert";
-import { IOperatorInstanceFormProps } from "./OperatorInstanceForm";
+import OperatorInstanceForm, { IOperatorInstanceFormProps } from "./OperatorInstanceForm";
 
 const defaultProps: IOperatorInstanceFormProps = {
   csvName: "foo",
@@ -12,6 +11,7 @@ const defaultProps: IOperatorInstanceFormProps = {
   isFetching: false,
   cluster: "default",
   namespace: "kubeapps",
+  kubeappsCluster: "default",
   getCSV: jest.fn(),
   createResource: jest.fn(),
   push: jest.fn(),
@@ -46,7 +46,11 @@ it("displays an alert if rendered for an additional cluster", () => {
 it("retrieves CSV when mounted", () => {
   const getCSV = jest.fn();
   shallow(<OperatorInstanceForm {...defaultProps} getCSV={getCSV} />);
-  expect(getCSV).toHaveBeenCalledWith(defaultProps.namespace, defaultProps.csvName);
+  expect(getCSV).toHaveBeenCalledWith(
+    defaultProps.cluster,
+    defaultProps.namespace,
+    defaultProps.csvName,
+  );
 });
 
 it("retrieves the example values and the target CRD from the given CSV", () => {
@@ -98,6 +102,7 @@ it("should submit the form", () => {
     },
   };
   expect(createResource).toHaveBeenCalledWith(
+    defaultProps.cluster,
     defaultProps.namespace,
     resource.apiVersion,
     defaultCRD.name,

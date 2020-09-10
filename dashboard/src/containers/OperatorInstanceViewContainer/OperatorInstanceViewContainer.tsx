@@ -17,12 +17,13 @@ interface IRouteProps {
   };
 }
 function mapStateToProps(
-  { apps, clusters: { currentCluster, clusters }, operators }: IStoreState,
+  { apps, clusters: { currentCluster, clusters }, config, operators }: IStoreState,
   { match: { params } }: IRouteProps,
 ) {
   return {
     cluster: currentCluster,
     namespace: clusters[currentCluster].currentNamespace,
+    kubeappsCluster: config.kubeappsCluster,
     csvName: params.csv,
     crdName: params.crd,
     instanceName: params.instanceName,
@@ -30,15 +31,22 @@ function mapStateToProps(
     resource: operators.resource,
     csv: operators.csv,
     errors: operators.errors.resource,
+    UI: config.featureFlags.ui,
   };
 }
 
 function mapDispatchToProps(dispatch: ThunkDispatch<IStoreState, null, Action>) {
   return {
-    getResource: (namespace: string, csvName: string, crdName: string, resourceName: string) =>
-      dispatch(actions.operators.getResource(namespace, csvName, crdName, resourceName)),
-    deleteResource: (namespace: string, crdName: string, resource: IResource) =>
-      dispatch(actions.operators.deleteResource(namespace, crdName, resource)),
+    getResource: (
+      cluster: string,
+      namespace: string,
+      csvName: string,
+      crdName: string,
+      resourceName: string,
+    ) =>
+      dispatch(actions.operators.getResource(cluster, namespace, csvName, crdName, resourceName)),
+    deleteResource: (cluster: string, namespace: string, crdName: string, resource: IResource) =>
+      dispatch(actions.operators.deleteResource(cluster, namespace, crdName, resource)),
     push: (location: string) => dispatch(push(location)),
   };
 }

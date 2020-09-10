@@ -31,9 +31,11 @@ const defaultProps = {
   namespace: "default",
   cluster: "default",
   appValues: "foo: bar",
-  valuesModified: false,
+  hasValuesChanged: false,
   setValues: jest.fn(),
   setValuesModified: jest.fn(),
+  setValuesUnmodified: jest.fn(),
+  setValuesFile: jest.fn(),
 } as IDeploymentFormBodyProps;
 const versions = [{ id: "foo", attributes: { version: "1.2.3" } }] as IChartVersion[];
 
@@ -78,14 +80,20 @@ it("marks the current version", () => {
       selected={{ versions, version: versions[0] }}
     />,
   );
-  expect(wrapper.find("select").text()).toMatch("1.2.3 (current)");
+  expect(wrapper.find("#chartVersion").text()).toMatch("1.2.3 (current)");
 });
 
 const initialValues = "foo: bar";
 const initialSchema = { properties: { foo: { type: "string", form: true } } };
 const chartVersion = {
   id: "foo",
-  attributes: { version: "1.0.0", app_version: "1.0", created: "1" },
+  attributes: {
+    version: "1.0.0",
+    app_version: "1.0",
+    created: "1",
+    values_files: [{ name: "values.yaml", namespace: "repo-namespace" }],
+    values_name: "values.yaml",
+  },
   relationships: {
     chart: {
       data: {
@@ -93,6 +101,7 @@ const chartVersion = {
         description: "chart-description",
         keywords: [],
         maintainers: [],
+        category: "",
         repo: {
           name: "repo",
           url: "http://example.com",
@@ -126,7 +135,7 @@ it("changes the URL for the new version", () => {
       ],
     },
   });
-  wrapper.find("select").simulate("change", { currentTarget: { value: "2.0.0" } });
+  wrapper.find("#chartVersion").simulate("change", { currentTarget: { value: "2.0.0" } });
   expect(push).toHaveBeenCalledWith(
     url.app.apps.new(defaultProps.cluster, defaultProps.namespace, chartVersion, "2.0.0"),
   );
