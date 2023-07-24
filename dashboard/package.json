@@ -74,7 +74,7 @@
     "redux-devtools-extension": "^2.13.5",
     "redux-thunk": "^2.2.0",
     "seamless-immutable": "^7.1.4",
-    "semver": "^5.6.0",
+    "semver": "^5.7.2",
     "typesafe-actions": "^2.0.4",
     "yaml": "1.7.2"
   },
